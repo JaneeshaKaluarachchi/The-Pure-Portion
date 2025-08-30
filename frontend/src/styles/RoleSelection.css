@@ -1,0 +1,147 @@
+.role-selection-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: white;
+}
+.role-selection-logo {
+  width: 50%;       /* adjust size */
+  height: auto;
+  margin: 0 auto -30px; /* centers logo & adds space below */
+  display: block;
+}
+
+.role-selection-card {
+  background: white;
+  padding: 40px;
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  max-width: 800px;
+  width: 100%;
+}
+
+.role-selection-card h1 {
+  font-size: 2.5rem;
+  color: #333;
+  margin-bottom: 10px;
+  background: linear-gradient(45deg, #000000, #000000);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.role-selection-card > p {
+  font-size: 1.2rem;
+  color: #666;
+  margin-bottom: 40px;
+}
+
+.role-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+.role-btn {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 15px;
+  padding: 30px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.role-btn:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.household-btn:hover {
+  border-color: #4CAF50;
+  background: linear-gradient(135deg, #f0fff4 0%, #e8f5e8 100%);
+}
+
+.restaurant-btn:hover {
+  border-color: #f37c21;
+  background: linear-gradient(135deg, #e6c088 0%, #ef9c5d 100%);
+}
+
+.btn-icon {
+  font-size: 3rem;
+  margin-bottom: 15px;
+}
+
+.role-btn h3 {
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.role-btn p {
+  color: #666;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.login-link {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.login-link p {
+  color: #666;
+  margin: 0;
+}
+
+.login-link a {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.login-link a:hover {
+  text-decoration: underline;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .role-selection-card {
+    padding: 30px 20px;
+  }
+
+  .role-selection-card h1 {
+    font-size: 2rem;
+  }
+
+  .role-buttons {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .role-btn {
+    min-height: 150px;
+    padding: 20px;
+  }
+
+  .btn-icon {
+    font-size: 2.5rem;
+  }
+
+  .role-btn h3 {
+    font-size: 1.3rem;
+  }
+
+
+
+}
