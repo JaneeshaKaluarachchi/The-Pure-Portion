@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import "../styles/InventoryManagement.css";
+import LoadingScreen from "./LoadingScreen";
+import StockModal from "../components/StockModal";
+import ConfirmModal from "../components/ConfirmModal";
+
 
 const InventoryManagement = () => {
   const [items, setItems] = useState([]);
@@ -12,9 +16,15 @@ const InventoryManagement = () => {
     status: "all",
     search: "",
   });
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
+  const [confirmDelete, setConfirmDelete] = useState({ show: false, id: null });
+const [stockModal, setStockModal] = useState({
+  show: false,
+  id: null,
+  operation: "",
+});
   const categories = [
     "vegetables",
     "fruits",
@@ -183,49 +193,51 @@ const InventoryManagement = () => {
     setShowAddForm(true);
   };
 
-  const handleDelete = async (id) => {
-    if (
-      window.confirm("Are you sure you want to delete this inventory item?")
-    ) {
-      try {
-        const token = localStorage.getItem("token");
-        await axios.delete(`http://localhost:5000/api/inventory/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        fetchItems();
-        fetchStats();
-        alert("Inventory item deleted successfully!");
-      } catch (error) {
-        console.error("Error deleting item:", error);
-        setError("Failed to delete inventory item");
-      }
-    }
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ show: true, id });
   };
 
-  const handleStockUpdate = async (id, operation) => {
-    const quantity = prompt(`Enter quantity to ${operation}:`);
-    if (quantity && !isNaN(quantity)) {
-      try {
-        const token = localStorage.getItem("token");
-        await axios.patch(
-          `http://localhost:5000/api/inventory/${id}/stock`,
-          {
-            quantity: Number(quantity),
-            operation: operation,
-            reason: `Manual ${operation} operation`,
-          },
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        fetchItems();
-        fetchStats();
-        alert(`Stock ${operation}ed successfully!`);
-      } catch (error) {
-        console.error("Error updating stock:", error);
-        setError("Failed to update stock");
-      }
+  const confirmDeleteItem = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(
+        `http://localhost:5000/api/inventory/${confirmDelete.id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      fetchItems();
+      fetchStats();
+      alert("Inventory item deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting item:", error);
+      setError("Failed to delete inventory item");
     }
+    setConfirmDelete({ show: false, id: null });
+  };
+
+  const handleStockUpdateClick = (id, operation) => {
+    setStockModal({ show: true, id, operation });
+  };
+
+  const confirmStockUpdate = async (quantity) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.patch(
+        `http://localhost:5000/api/inventory/${stockModal.id}/stock`,
+        {
+          quantity,
+          operation: stockModal.operation,
+          reason: `Manual ${stockModal.operation} operation`,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      fetchItems();
+      fetchStats();
+      alert(`Stock ${stockModal.operation}ed successfully!`);
+    } catch (error) {
+      console.error("Error updating stock:", error);
+      setError("Failed to update stock");
+    }
+    setStockModal({ show: false, id: null, operation: "" });
   };
 
   const resetForm = () => {
@@ -285,6 +297,29 @@ const InventoryManagement = () => {
         return q;
     }
   };
+  const handleDownloadPDF = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(
+        "http://localhost:5000/api/inventory/report/pdf",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob", // important for files
+        }
+      );
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "inventory_report.pdf");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      alert("Failed to download PDF");
+    }
+  };
 
   const calculateItemValue = (item) => {
     const normalizedQty = normalizeQuantity(item.currentQuantity, item.unit);
@@ -297,16 +332,34 @@ const InventoryManagement = () => {
     }).format(amount);
   };
 
-  if (loading) return <div className="loading">Loading inventory...</div>;
+  if (loading) return <LoadingScreen />;
 
   return (
     <div className="inventory-management">
       <div className="inventory-header">
         <h2>Inventory Management</h2>
-        <button className="btn-primary" onClick={() => setShowAddForm(true)}>
+        <button className="btn-primary1" onClick={() => setShowAddForm(true)}>
           + Add Item
         </button>
+        <button className="btn-pdf" onClick={handleDownloadPDF}>
+          📄 Download PDF
+        </button>
       </div>
+
+      <ConfirmModal
+        show={confirmDelete.show}
+        title="Delete Item"
+        message="Are you sure you want to delete this inventory item?"
+        onConfirm={confirmDeleteItem}
+        onCancel={() => setConfirmDelete({ show: false, id: null })}
+      />
+
+      <StockModal
+        show={stockModal.show}
+        operation={stockModal.operation}
+        onConfirm={confirmStockUpdate}
+        onCancel={() => setStockModal({ show: false, id: null, operation: "" })}
+      />
 
       {error && <div className="error-message">{error}</div>}
 
@@ -543,7 +596,7 @@ const InventoryManagement = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary">
+                <button type="submit" className="btn-primary2">
                   {editingItem ? "Update Item" : "Add Item"}
                 </button>
               </div>
@@ -617,21 +670,23 @@ const InventoryManagement = () => {
                       ✏️
                     </button>
                     <button
-                      onClick={() => handleStockUpdate(item._id, "add")}
+                      onClick={() => handleStockUpdateClick(item._id, "add")}
                       className="btn-stock-in"
                       title="Stock In"
                     >
                       ➕
                     </button>
                     <button
-                      onClick={() => handleStockUpdate(item._id, "subtract")}
+                      onClick={() =>
+                        handleStockUpdateClick(item._id, "subtract")
+                      }
                       className="btn-stock-out"
                       title="Stock Out"
                     >
                       ➖
                     </button>
                     <button
-                      onClick={() => handleDelete(item._id)}
+                      onClick={() => handleDeleteClick(item._id)}
                       className="btn-delete"
                       title="Delete"
                     >

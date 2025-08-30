@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "../styles/FinanceDashboard.css";
 import StaffTileSelector from './StaffTileSelector';
+import LoadingScreen from './LoadingScreen';
 
 const FinanceDashboard = () => {
   const [dailyProfit, setDailyProfit] = useState(null);
@@ -123,9 +124,9 @@ const FinanceDashboard = () => {
     setError("");
     fetchFinanceData();
   };
-
-  if (loading) return <div className="loading">Loading finance data...</div>;
-
+  if (loading) return <LoadingScreen />;
+  
+  
   const formatLKR = (value) => `Rs ${Number(value || 0).toLocaleString("en-LK", { minimumFractionDigits: 2 })}`;
 
   return (
