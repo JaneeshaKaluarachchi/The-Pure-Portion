@@ -562,3 +562,40 @@
   background-color: #c82333;
   transform: translateY(-1px);
 }
+/* Ingredients Table */
+.ingredients-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.ingredients-table th,
+.ingredients-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #ecf0f1;
+}
+
+.ingredients-table th {
+  background: #27ae60;
+  color: white;
+  font-weight: 600;
+  text-align: left;
+}
+
+.ingredients-table tr:nth-child(even) {
+  background: #f9f9f9;
+}
+
+.ingredients-table tr:hover {
+  background: #f1fdf4;
+}
+
+.ingredients-table td {
+  color: #2c3e50;
+}
+
+.ingredients-table td:last-child {
+  text-align: center;
+}

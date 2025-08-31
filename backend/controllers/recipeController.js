@@ -153,14 +153,15 @@ const updateRecipe = async (req, res) => {
             throw new Error(`Inventory item not found: ${ingredient.inventoryItemId}`);
           }
           
-          return {
-            inventoryItemId: ingredient.inventoryItemId,
-            itemName: inventoryItem.name,
-            quantity: Number(ingredient.quantity),
-            unit: inventoryItem.unit,
-            costPerUnit: inventoryItem.costPerUnit,
-            totalCost: Number(ingredient.quantity) * inventoryItem.costPerUnit
-          };
+         return {
+  inventoryItemId: ingredient.inventoryItemId,
+  itemName: inventoryItem.name,
+  quantity: Number(ingredient.quantity),   // from frontend
+  unit: ingredient.unit || inventoryItem.unit, // use user-selected if available
+  costPerUnit: inventoryItem.costPerUnit,
+  totalCost: Number(ingredient.quantity) * inventoryItem.costPerUnit
+};
+
         })
       );
     }

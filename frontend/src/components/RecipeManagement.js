@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import '../styles/RecipeManagement.css';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import "../styles/RecipeManagement.css";
+import LoadingScreen from "./LoadingScreen";
 
 const RecipeManagement = () => {
   const [recipes, setRecipes] = useState([]);
@@ -8,25 +9,39 @@ const RecipeManagement = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState(null);
-  const [recipeType, setRecipeType] = useState(''); // 'curry' or 'meal'
+  const [recipeType, setRecipeType] = useState(""); // 'curry' or 'meal'
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [selectedIngredients, setSelectedIngredients] = useState([]);
-  const [ingredientSearch, setIngredientSearch] = useState('');
-
-  // Curry categories
-  const curryCategories = ['gravy', 'meat', 'fried', 'dry', 'coconut', 'vegetable'];
+  const [ingredientSearch, setIngredientSearch] = useState("");
   
-  // Meal categories  
-  const mealCategories = ['rice', 'bread', 'soup', 'salad', 'dessert', 'beverage'];
+  // Curry categories
+  const curryCategories = [
+    "gravy",
+    "meat",
+    "fried",
+    "dry",
+    "coconut",
+    "vegetable",
+  ];
+
+  // Meal categories
+  const mealCategories = [
+    "rice",
+    "bread",
+    "soup",
+    "salad",
+    "dessert",
+    "beverage",
+  ];
 
   const [formData, setFormData] = useState({
-    name: '',
-    category: '',
-    description: '',
+    name: "",
+    category: "",
+    description: "",
     imageFile: null,
-    imageUrl: '',
-    servings: 1
+    imageUrl: "",
+    servings: 1,
   });
 
   useEffect(() => {
@@ -36,40 +51,40 @@ const RecipeManagement = () => {
 
   const fetchRecipes = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/recipes', {
-        headers: { Authorization: `Bearer ${token}` }
+      const token = localStorage.getItem("token");
+      const response = await axios.get("http://localhost:5000/api/recipes", {
+        headers: { Authorization: `Bearer ${token}` },
       });
       setRecipes(response.data.recipes);
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching recipes:', error);
-      setError('Failed to fetch recipes');
+      console.error("Error fetching recipes:", error);
+      setError("Failed to fetch recipes");
       setLoading(false);
     }
   };
 
   const fetchInventoryItems = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/inventory', {
-        headers: { Authorization: `Bearer ${token}` }
+      const token = localStorage.getItem("token");
+      const response = await axios.get("http://localhost:5000/api/inventory", {
+        headers: { Authorization: `Bearer ${token}` },
       });
       setInventoryItems(response.data.items);
     } catch (error) {
-      console.error('Error fetching inventory:', error);
+      console.error("Error fetching inventory:", error);
     }
   };
 
   const handleCreateNew = (type) => {
     setRecipeType(type);
     setFormData({
-      name: '',
-      category: '',
-      description: '',
+      name: "",
+      category: "",
+      description: "",
       imageFile: null,
-      imageUrl: '',
-      servings: 1
+      imageUrl: "",
+      servings: 1,
     });
     setSelectedIngredients([]);
     setShowCreateForm(true);
@@ -77,31 +92,35 @@ const RecipeManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (selectedIngredients.length === 0) {
-      alert('Please add at least one ingredient');
+      alert("Please add at least one ingredient");
       return;
     }
 
     try {
-      const token = localStorage.getItem('token');
-      
+      const token = localStorage.getItem("token");
+
       // Handle image upload if there's a file
-      let imageUrl = '';
+      let imageUrl = "";
       if (formData.imageFile) {
         const formDataUpload = new FormData();
-        formDataUpload.append('image', formData.imageFile);
-        
+        formDataUpload.append("image", formData.imageFile);
+
         try {
-          const uploadResponse = await axios.post('http://localhost:5000/api/recipes/upload-image', formDataUpload, {
-            headers: { 
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'multipart/form-data'
+          const uploadResponse = await axios.post(
+            "http://localhost:5000/api/recipes/upload-image",
+            formDataUpload,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "multipart/form-data",
+              },
             }
-          });
+          );
           imageUrl = uploadResponse.data.imageUrl;
         } catch (uploadError) {
-          console.error('Error uploading image:', uploadError);
+          console.error("Error uploading image:", uploadError);
           // Continue without image if upload fails
         }
       }
@@ -109,56 +128,95 @@ const RecipeManagement = () => {
       const recipeData = {
         name: formData.name,
         description: formData.description,
-        category: recipeType === 'curry' ? 'curry' : formData.category,
-        cuisine: 'sri-lankan',
+        category: recipeType === "curry" ? "curry" : formData.category,
+        cuisine: "sri-lankan",
         servings: formData.servings,
         prepTime: 30, // Default values
         cookTime: 30,
         ingredients: selectedIngredients,
         imageUrl: imageUrl,
-        status: 'active',
-        subcategory: formData.category // Store curry/meal subcategory
+        status: "active",
+        subcategory: formData.category, // Store curry/meal subcategory
       };
 
-      await axios.post('http://localhost:5000/api/recipes', recipeData, {
-        headers: { Authorization: `Bearer ${token}` }
+      await axios.post("http://localhost:5000/api/recipes", recipeData, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      alert(`${recipeType === 'curry' ? 'Curry' : 'Meal'} created successfully!`);
+      alert(
+        `${recipeType === "curry" ? "Curry" : "Meal"} created successfully!`
+      );
       resetForm();
       fetchRecipes();
     } catch (error) {
-      console.error('Error creating recipe:', error);
+      console.error("Error creating recipe:", error);
       setError(`Failed to create ${recipeType}`);
     }
   };
+  
+  // Convert quantity from selectedUnit to baseUnit
+const convertToBaseUnit = (quantity, selectedUnit, baseUnit) => {
+  if (selectedUnit === baseUnit) return quantity;
+
+  const conversionRates = {
+    // Weight
+    kg: { g: 1000, lb: 0.453592, oz: 0.0283495 },
+    g: { kg: 0.001, lb: 453.592, oz: 28.3495 },
+    lb: { kg: 2.20462, g: 0.00220462, oz: 0.0625 },
+    oz: { kg: 35.274, g: 0.035274, lb: 16 },
+
+    // Volume
+    l: { ml: 0.001, cup: 0.236588, tbsp: 0.0147868, tsp: 0.00492892 },
+    ml: { l: 1000, cup: 236.588, tbsp: 14.7868, tsp: 4.92892 },
+    cup: { l: 4.22675, ml: 0.00422675, tbsp: 16, tsp: 48 },
+    tbsp: { l: 67.628, ml: 0.067628, cup: 0.0625, tsp: 3 },
+    tsp: { l: 202.884, ml: 0.202884, cup: 0.0208333, tbsp: 0.333333 },
+
+    // Count
+    pcs: { dozen: 0.0833333 },
+    dozen: { pcs: 12 }
+  };
+
+  // If baseUnit exists in conversionRates and selectedUnit mapping exists
+  if (baseUnit === 'kg' && selectedUnit === 'g') return quantity / 1000;  // simplest fix for kg/g
+  if (conversionRates[baseUnit] && conversionRates[baseUnit][selectedUnit]) {
+    return quantity * conversionRates[baseUnit][selectedUnit];
+  }
+
+  console.warn(`No conversion found from ${selectedUnit} to ${baseUnit}`);
+  return quantity; // fallback
+};
+
 
   const addIngredient = (inventoryItem, quantity, unit) => {
-    if (!quantity || quantity <= 0) {
-      alert('Please enter a valid quantity');
-      return;
-    }
+  if (!quantity || quantity <= 0) {
+    alert('Please enter a valid quantity');
+    return;
+  }
 
-    const existingIndex = selectedIngredients.findIndex(ing => ing.inventoryItemId === inventoryItem._id);
-    
-    if (existingIndex !== -1) {
-      // Update existing ingredient
-      const updated = [...selectedIngredients];
-      updated[existingIndex].quantity = parseFloat(quantity);
-      updated[existingIndex].unit = unit;
-      setSelectedIngredients(updated);
-    } else {
-      // Add new ingredient
-      const newIngredient = {
-        inventoryItemId: inventoryItem._id,
-        itemName: inventoryItem.name,
-        quantity: parseFloat(quantity),
-        unit: unit,
-        costPerUnit: inventoryItem.costPerUnit
-      };
-      setSelectedIngredients([...selectedIngredients, newIngredient]);
-    }
-  };
+  const existingIndex = selectedIngredients.findIndex(
+    (ing) => ing.inventoryItemId === inventoryItem._id
+  );
+
+  if (existingIndex !== -1) {
+    const updated = [...selectedIngredients];
+    updated[existingIndex].quantity = parseFloat(quantity);
+    updated[existingIndex].unit = unit;
+    updated[existingIndex].baseUnit = inventoryItem.unit; // Add base unit
+    setSelectedIngredients(updated);
+  } else {
+    const newIngredient = {
+      inventoryItemId: inventoryItem._id,
+      itemName: inventoryItem.name,
+      quantity: parseFloat(quantity),
+      unit: unit,
+      costPerUnit: inventoryItem.costPerUnit,
+      baseUnit: inventoryItem.unit // Base unit here
+    };
+    setSelectedIngredients([...selectedIngredients, newIngredient]);
+  }
+};
+
 
   const removeIngredient = (index) => {
     const updated = selectedIngredients.filter((_, i) => i !== index);
@@ -167,32 +225,32 @@ const RecipeManagement = () => {
 
   const resetForm = () => {
     setFormData({
-      name: '',
-      category: '',
-      description: '',
+      name: "",
+      category: "",
+      description: "",
       imageFile: null,
-      imageUrl: '',
-      servings: 1
+      imageUrl: "",
+      servings: 1,
     });
     setSelectedIngredients([]);
-    setRecipeType('');
+    setRecipeType("");
     setShowCreateForm(false);
     setShowEditForm(false);
     setEditingRecipe(null);
-    setIngredientSearch('');
+    setIngredientSearch("");
   };
 
   // Handle edit recipe
   const handleEditRecipe = (recipe) => {
     setEditingRecipe(recipe);
-    setRecipeType(recipe.category === 'curry' ? 'curry' : 'meal');
+    setRecipeType(recipe.category === "curry" ? "curry" : "meal");
     setFormData({
       name: recipe.name,
       category: recipe.subcategory || recipe.category,
-      description: recipe.description || '',
+      description: recipe.description || "",
       imageFile: null,
-      imageUrl: recipe.imageUrl || '',
-      servings: recipe.servings || 1
+      imageUrl: recipe.imageUrl || "",
+      servings: recipe.servings || 1,
     });
     setSelectedIngredients(recipe.ingredients || []);
     setShowEditForm(true);
@@ -201,57 +259,67 @@ const RecipeManagement = () => {
   // Handle update recipe
   const handleUpdateRecipe = async (e) => {
     e.preventDefault();
-    
+
     if (selectedIngredients.length === 0) {
-      alert('Please add at least one ingredient');
+      alert("Please add at least one ingredient");
       return;
     }
 
     try {
-      const token = localStorage.getItem('token');
-      
+      const token = localStorage.getItem("token");
+
       // Handle image upload if there's a new file
       let imageUrl = formData.imageUrl;
       if (formData.imageFile) {
         const formDataUpload = new FormData();
-        formDataUpload.append('image', formData.imageFile);
-        
+        formDataUpload.append("image", formData.imageFile);
+
         try {
-          const uploadResponse = await axios.post('http://localhost:5000/api/recipes/upload-image', formDataUpload, {
-            headers: { 
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'multipart/form-data'
+          const uploadResponse = await axios.post(
+            "http://localhost:5000/api/recipes/upload-image",
+            formDataUpload,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "multipart/form-data",
+              },
             }
-          });
+          );
           imageUrl = uploadResponse.data.imageUrl;
         } catch (uploadError) {
-          console.error('Error uploading image:', uploadError);
+          console.error("Error uploading image:", uploadError);
         }
       }
 
       const recipeData = {
         name: formData.name,
         description: formData.description,
-        category: recipeType === 'curry' ? 'curry' : formData.category,
-        cuisine: 'sri-lankan',
+        category: recipeType === "curry" ? "curry" : formData.category,
+        cuisine: "sri-lankan",
         servings: formData.servings,
         prepTime: 30,
         cookTime: 30,
         ingredients: selectedIngredients,
         imageUrl: imageUrl,
-        status: 'active',
-        subcategory: formData.category
+        status: "active",
+        subcategory: formData.category,
       };
 
-      await axios.put(`http://localhost:5000/api/recipes/${editingRecipe._id}`, recipeData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.put(
+        `http://localhost:5000/api/recipes/${editingRecipe._id}`,
+        recipeData,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
-      alert(`${recipeType === 'curry' ? 'Curry' : 'Meal'} updated successfully!`);
+      alert(
+        `${recipeType === "curry" ? "Curry" : "Meal"} updated successfully!`
+      );
       resetForm();
       fetchRecipes();
     } catch (error) {
-      console.error('Error updating recipe:', error);
+      console.error("Error updating recipe:", error);
       setError(`Failed to update ${recipeType}`);
     }
   };
@@ -263,36 +331,43 @@ const RecipeManagement = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       await axios.delete(`http://localhost:5000/api/recipes/${recipeId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      alert('Recipe deleted successfully!');
+      alert("Recipe deleted successfully!");
       fetchRecipes();
     } catch (error) {
-      console.error('Error deleting recipe:', error);
-      setError('Failed to delete recipe');
+      console.error("Error deleting recipe:", error);
+      setError("Failed to delete recipe");
     }
   };
 
   // Only show filtered items if there's a search query
-  const filteredInventoryItems = ingredientSearch.trim() 
-    ? inventoryItems.filter(item =>
+  const filteredInventoryItems = ingredientSearch.trim()
+    ? inventoryItems.filter((item) =>
         item.name.toLowerCase().includes(ingredientSearch.toLowerCase())
       )
     : [];
 
-  const calculateTotalCost = () => {
-    return selectedIngredients.reduce((total, ingredient) => {
-      return total + (ingredient.quantity * ingredient.costPerUnit);
-    }, 0);
-  };
+const calculateTotalCost = () => {
+  return selectedIngredients.reduce((total, ingredient) => {
+    // Convert quantity to base unit
+    const baseQuantity = convertToBaseUnit(
+      ingredient.quantity,
+      ingredient.unit,
+      ingredient.baseUnit
+    );
+    return total + baseQuantity * ingredient.costPerUnit;
+  }, 0);
+};
+
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'LKR'
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "LKR",
     }).format(amount);
   };
 
@@ -301,30 +376,30 @@ const RecipeManagement = () => {
     const baseUnit = item.unit;
     const unitGroups = {
       // Weight units
-      'kg': ['kg', 'g', 'lb', 'oz'],
-      'g': ['g', 'kg', 'oz', 'lb'],
-      'lb': ['lb', 'kg', 'g', 'oz'],
-      'oz': ['oz', 'lb', 'g', 'kg'],
-      
+      kg: ["kg", "g", "lb", "oz"],
+      g: ["g", "kg", "oz", "lb"],
+      lb: ["lb", "kg", "g", "oz"],
+      oz: ["oz", "lb", "g", "kg"],
+
       // Volume units
-      'l': ['l', 'ml', 'cup', 'tbsp', 'tsp'],
-      'ml': ['ml', 'l', 'cup', 'tbsp', 'tsp'],
-      'cup': ['cup', 'ml', 'l', 'tbsp', 'tsp'],
-      'tbsp': ['tbsp', 'tsp', 'cup', 'ml'],
-      'tsp': ['tsp', 'tbsp', 'cup', 'ml'],
-      
+      l: ["l", "ml", "cup", "tbsp", "tsp"],
+      ml: ["ml", "l", "cup", "tbsp", "tsp"],
+      cup: ["cup", "ml", "l", "tbsp", "tsp"],
+      tbsp: ["tbsp", "tsp", "cup", "ml"],
+      tsp: ["tsp", "tbsp", "cup", "ml"],
+
       // Count units
-      'pcs': ['pcs', 'dozen'],
-      'dozen': ['dozen', 'pcs'],
-      
+      pcs: ["pcs", "dozen"],
+      dozen: ["dozen", "pcs"],
+
       // Default
-      'unit': ['unit', 'pcs']
+      unit: ["unit", "pcs"],
     };
-    
+
     return unitGroups[baseUnit] || [baseUnit];
   };
 
-  if (loading) return <div className="loading">Loading recipes...</div>;
+  if (loading) return <LoadingScreen />;
 
   return (
     <div className="recipe-management">
@@ -339,13 +414,19 @@ const RecipeManagement = () => {
           {/* Main Dashboard */}
           <div className="recipe-dashboard">
             <div className="create-options">
-              <div className="create-card" onClick={() => handleCreateNew('curry')}>
+              <div
+                className="create-card"
+                onClick={() => handleCreateNew("curry")}
+              >
                 <div className="create-icon">🍛</div>
                 <h3>Create Curry</h3>
                 <p>Create a new Sri Lankan curry recipe</p>
               </div>
-              
-              <div className="create-card" onClick={() => handleCreateNew('meal')}>
+
+              <div
+                className="create-card"
+                onClick={() => handleCreateNew("meal")}
+              >
                 <div className="create-icon">🍽️</div>
                 <h3>New Meal</h3>
                 <p>Create a new meal recipe</p>
@@ -358,15 +439,21 @@ const RecipeManagement = () => {
             <div className="existing-recipes">
               <h3>Your Recipes</h3>
               <div className="recipes-grid">
-                {recipes.map(recipe => (
+                {recipes.map((recipe) => (
                   <div key={recipe._id} className="recipe-card">
                     {recipe.imageUrl && (
-                      <img src={recipe.imageUrl} alt={recipe.name} className="recipe-image" />
+                      <img
+                        src={recipe.imageUrl}
+                        alt={recipe.name}
+                        className="recipe-image"
+                      />
                     )}
                     <div className="recipe-content">
                       <h4>{recipe.name}</h4>
                       <p className="recipe-category">
-                        {recipe.category === 'curry' ? `${recipe.subcategory} curry` : recipe.subcategory}
+                        {recipe.category === "curry"
+                          ? `${recipe.subcategory} curry`
+                          : recipe.subcategory}
                       </p>
                       <div className="recipe-meta">
                         <span>💰 {formatCurrency(recipe.costPerServing)}</span>
@@ -375,15 +462,17 @@ const RecipeManagement = () => {
                         🥘 {recipe.ingredients.length} ingredients
                       </div>
                       <div className="recipe-actions">
-                        <button 
+                        <button
                           className="btn-edit"
                           onClick={() => handleEditRecipe(recipe)}
                         >
                           Edit
                         </button>
-                        <button 
+                        <button
                           className="btn-delete"
-                          onClick={() => handleDeleteRecipe(recipe._id, recipe.name)}
+                          onClick={() =>
+                            handleDeleteRecipe(recipe._id, recipe.name)
+                          }
                         >
                           Delete
                         </button>
@@ -399,33 +488,48 @@ const RecipeManagement = () => {
         /* Create Form */
         <div className="create-form">
           <div className="form-header">
-            <h3>Create {recipeType === 'curry' ? 'Curry' : 'New Meal'}</h3>
-            <button className="close-btn" onClick={resetForm}>×</button>
+            <h3>Create {recipeType === "curry" ? "Curry" : "New Meal"}</h3>
+            <button className="close-btn" onClick={resetForm}>
+              ×
+            </button>
           </div>
 
           <form onSubmit={handleSubmit} className="recipe-form">
             <div className="form-section">
               <div className="form-row">
                 <div className="form-group">
-                  <label>{recipeType === 'curry' ? 'Curry Name' : 'Meal Name'} *</label>
+                  <label>
+                    {recipeType === "curry" ? "Curry Name" : "Meal Name"} *
+                  </label>
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
                     required
-                    placeholder={recipeType === 'curry' ? 'e.g., Daal Curry' : 'e.g., Fried Rice'}
+                    placeholder={
+                      recipeType === "curry"
+                        ? "e.g., Daal Curry"
+                        : "e.g., Fried Rice"
+                    }
                   />
                 </div>
-                
+
                 <div className="form-group">
                   <label>Category *</label>
                   <select
                     value={formData.category}
-                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, category: e.target.value })
+                    }
                     required
                   >
                     <option value="">Select Category</option>
-                    {(recipeType === 'curry' ? curryCategories : mealCategories).map(cat => (
+                    {(recipeType === "curry"
+                      ? curryCategories
+                      : mealCategories
+                    ).map((cat) => (
                       <option key={cat} value={cat}>
                         {cat.charAt(0).toUpperCase() + cat.slice(1)}
                       </option>
@@ -438,7 +542,9 @@ const RecipeManagement = () => {
                 <label>Description</label>
                 <textarea
                   value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
                   rows="3"
                   placeholder="Describe your recipe..."
                 />
@@ -452,11 +558,14 @@ const RecipeManagement = () => {
                   onChange={(e) => {
                     const file = e.target.files[0];
                     if (file) {
-                      setFormData({...formData, imageFile: file});
+                      setFormData({ ...formData, imageFile: file });
                       // Create preview URL
                       const reader = new FileReader();
                       reader.onload = (e) => {
-                        setFormData(prev => ({...prev, imageUrl: e.target.result}));
+                        setFormData((prev) => ({
+                          ...prev,
+                          imageUrl: e.target.result,
+                        }));
                       };
                       reader.readAsDataURL(file);
                     }
@@ -474,7 +583,7 @@ const RecipeManagement = () => {
             {/* Ingredients Selection */}
             <div className="ingredients-section">
               <h4>Select Ingredients (for 1 person)</h4>
-              
+
               <div className="ingredient-search">
                 <input
                   type="text"
@@ -486,7 +595,7 @@ const RecipeManagement = () => {
               </div>
 
               <div className="inventory-items">
-                {ingredientSearch.trim() === '' ? (
+                {ingredientSearch.trim() === "" ? (
                   <div className="search-prompt">
                     <p>Start typing to search for ingredients...</p>
                   </div>
@@ -495,12 +604,14 @@ const RecipeManagement = () => {
                     <p>No ingredients found for "{ingredientSearch}"</p>
                   </div>
                 ) : (
-                  filteredInventoryItems.map(item => (
+                  filteredInventoryItems.map((item) => (
                     <IngredientSelector
                       key={item._id}
                       item={item}
                       onAdd={addIngredient}
-                      isSelected={selectedIngredients.some(ing => ing.inventoryItemId === item._id)}
+                      isSelected={selectedIngredients.some(
+                        (ing) => ing.inventoryItemId === item._id
+                      )}
                       availableUnits={getAvailableUnits(item)}
                     />
                   ))
@@ -512,15 +623,24 @@ const RecipeManagement = () => {
                   <h5>Selected Ingredients:</h5>
                   {selectedIngredients.map((ingredient, index) => (
                     <div key={index} className="selected-ingredient">
-                      <span className="ingredient-name">{ingredient.itemName}</span>
+                      <span className="ingredient-name">
+                        {ingredient.itemName}
+                      </span>
                       <span className="ingredient-quantity">
-                        {ingredient.quantity} {ingredient.unit}
+                        {(ingredient.quantity)} {ingredient.unit}
                       </span>
                       <span className="ingredient-cost">
-                        {formatCurrency(ingredient.quantity * ingredient.costPerUnit)}
+                        {formatCurrency(
+                          convertToBaseUnit(
+                            ingredient.quantity,
+                            ingredient.unit,
+                            ingredient.baseUnit
+                          ) * ingredient.costPerUnit 
+                        )}
                       </span>
-                      <button 
-                        type="button" 
+
+                      <button
+                        type="button"
                         onClick={() => removeIngredient(index)}
                         className="remove-btn"
                       >
@@ -529,171 +649,216 @@ const RecipeManagement = () => {
                     </div>
                   ))}
                   <div className="total-cost">
-                    <strong>Total Cost: {formatCurrency(calculateTotalCost())}</strong>
+                    <strong>
+                      Total Cost: {formatCurrency(calculateTotalCost())}
+                    </strong>
                   </div>
                 </div>
               )}
             </div>
 
             <div className="form-actions">
-              <button type="button" onClick={resetForm} className="btn-secondary">
+              <button
+                type="button"
+                onClick={resetForm}
+                className="btn-secondary"
+              >
                 Cancel
               </button>
               <button type="submit" className="btn-primary">
-                Create {recipeType === 'curry' ? 'Curry' : 'Meal'}
+                Create {recipeType === "curry" ? "Curry" : "Meal"}
               </button>
             </div>
           </form>
         </div>
-      ) : showEditForm && (
-        /* Edit Form */
-        <div className="create-form">
-          <div className="form-header">
-            <h3>Edit {recipeType === 'curry' ? 'Curry' : 'Meal'}</h3>
-            <button className="close-btn" onClick={resetForm}>×</button>
-          </div>
+      ) : (
+        showEditForm && (
+          /* Edit Form */
+          <div className="create-form">
+            <div className="form-header">
+              <h3>Edit {recipeType === "curry" ? "Curry" : "Meal"}</h3>
+              <button className="close-btn" onClick={resetForm}>
+                ×
+              </button>
+            </div>
 
-          <form onSubmit={handleUpdateRecipe} className="recipe-form">
-            <div className="form-section">
-              <div className="form-row">
+            <form onSubmit={handleUpdateRecipe} className="recipe-form">
+              <div className="form-section">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>
+                      {recipeType === "curry" ? "Curry Name" : "Meal Name"} *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
+                      required
+                      placeholder={
+                        recipeType === "curry"
+                          ? "e.g., Daal Curry"
+                          : "e.g., Fried Rice"
+                      }
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Category *</label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) =>
+                        setFormData({ ...formData, category: e.target.value })
+                      }
+                      required
+                    >
+                      <option value="">Select Category</option>
+                      {(recipeType === "curry"
+                        ? curryCategories
+                        : mealCategories
+                      ).map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
                 <div className="form-group">
-                  <label>{recipeType === 'curry' ? 'Curry Name' : 'Meal Name'} *</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    required
-                    placeholder={recipeType === 'curry' ? 'e.g., Daal Curry' : 'e.g., Fried Rice'}
+                  <label>Description</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
+                    rows="3"
+                    placeholder="Describe your recipe..."
                   />
                 </div>
-                
+
                 <div className="form-group">
-                  <label>Category *</label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({...formData, category: e.target.value})}
-                    required
-                  >
-                    <option value="">Select Category</option>
-                    {(recipeType === 'curry' ? curryCategories : mealCategories).map(cat => (
-                      <option key={cat} value={cat}>
-                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  rows="3"
-                  placeholder="Describe your recipe..."
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Upload New Image (Optional)</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      setFormData({...formData, imageFile: file});
-                      const reader = new FileReader();
-                      reader.onload = (e) => {
-                        setFormData(prev => ({...prev, imageUrl: e.target.result}));
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                  className="file-input"
-                />
-                {formData.imageUrl && (
-                  <div className="image-preview">
-                    <img src={formData.imageUrl} alt="Preview" />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Ingredients Selection */}
-            <div className="ingredients-section">
-              <h4>Update Ingredients</h4>
-              
-              <div className="ingredient-search">
-                <input
-                  type="text"
-                  placeholder="Search ingredients from inventory..."
-                  value={ingredientSearch}
-                  onChange={(e) => setIngredientSearch(e.target.value)}
-                  className="search-input"
-                />
-              </div>
-
-              <div className="inventory-items">
-                {ingredientSearch.trim() === '' ? (
-                  <div className="search-prompt">
-                    <p>Start typing to search for ingredients...</p>
-                  </div>
-                ) : filteredInventoryItems.length === 0 ? (
-                  <div className="no-results">
-                    <p>No ingredients found for "{ingredientSearch}"</p>
-                  </div>
-                ) : (
-                  filteredInventoryItems.map(item => (
-                    <IngredientSelector
-                      key={item._id}
-                      item={item}
-                      onAdd={addIngredient}
-                      isSelected={selectedIngredients.some(ing => ing.inventoryItemId === item._id)}
-                      availableUnits={getAvailableUnits(item)}
-                    />
-                  ))
-                )}
-              </div>
-
-              {selectedIngredients.length > 0 && (
-                <div className="selected-ingredients">
-                  <h5>Selected Ingredients:</h5>
-                  {selectedIngredients.map((ingredient, index) => (
-                    <div key={index} className="selected-ingredient">
-                      <span className="ingredient-name">{ingredient.itemName}</span>
-                      <span className="ingredient-quantity">
-                        {ingredient.quantity} {ingredient.unit}
-                      </span>
-                      <span className="ingredient-cost">
-                        {formatCurrency(ingredient.quantity * ingredient.costPerUnit)}
-                      </span>
-                      <button 
-                        type="button" 
-                        onClick={() => removeIngredient(index)}
-                        className="remove-btn"
-                      >
-                        Remove
-                      </button>
+                  <label>Upload New Image (Optional)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        setFormData({ ...formData, imageFile: file });
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            imageUrl: e.target.result,
+                          }));
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="file-input"
+                  />
+                  {formData.imageUrl && (
+                    <div className="image-preview">
+                      <img src={formData.imageUrl} alt="Preview" />
                     </div>
-                  ))}
-                  <div className="total-cost">
-                    <strong>Total Cost: {formatCurrency(calculateTotalCost())}</strong>
-                  </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </div>
 
-            <div className="form-actions">
-              <button type="button" onClick={resetForm} className="btn-secondary">
-                Cancel
-              </button>
-              <button type="submit" className="btn-primary">
-                Update {recipeType === 'curry' ? 'Curry' : 'Meal'}
-              </button>
-            </div>
-          </form>
-        </div>
+              {/* Ingredients Selection */}
+              <div className="ingredients-section">
+                <h4>Update Ingredients</h4>
+
+                <div className="ingredient-search">
+                  <input
+                    type="text"
+                    placeholder="Search ingredients from inventory..."
+                    value={ingredientSearch}
+                    onChange={(e) => setIngredientSearch(e.target.value)}
+                    className="search-input"
+                  />
+                </div>
+
+                <div className="inventory-items">
+                  {ingredientSearch.trim() === "" ? (
+                    <div className="search-prompt">
+                      <p>Start typing to search for ingredients...</p>
+                    </div>
+                  ) : filteredInventoryItems.length === 0 ? (
+                    <div className="no-results">
+                      <p>No ingredients found for "{ingredientSearch}"</p>
+                    </div>
+                  ) : (
+                    filteredInventoryItems.map((item) => (
+                      <IngredientSelector
+                        key={item._id}
+                        item={item}
+                        onAdd={addIngredient}
+                        isSelected={selectedIngredients.some(
+                          (ing) => ing.inventoryItemId === item._id
+                        )}
+                        availableUnits={getAvailableUnits(item)}
+                      />
+                    ))
+                  )}
+                </div>
+
+                {selectedIngredients.length > 0 && (
+                  <div className="selected-ingredients">
+                    <h5>Selected Ingredients:</h5>
+                    {selectedIngredients.map((ingredient, index) => (
+                      <div key={index} className="selected-ingredient">
+                        <span className="ingredient-name">
+                          {ingredient.itemName}
+                        </span>
+                        <span className="ingredient-quantity">
+                          {ingredient.quantity} {ingredient.unit}
+                        </span>
+                        <span className="ingredient-cost">
+                          {formatCurrency(
+                            convertToBaseUnit(
+                              ingredient.quantity,
+                              ingredient.unit,
+                              ingredient.baseUnit
+                            ) * ingredient.costPerUnit
+                          )}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => removeIngredient(index)}
+                          className="remove-btn"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    <div className="total-cost">
+                      <strong>
+                        Total Cost: {formatCurrency(calculateTotalCost())}
+                      </strong>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary">
+                  Update {recipeType === "curry" ? "Curry" : "Meal"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )
       )}
     </div>
   );
@@ -701,18 +866,18 @@ const RecipeManagement = () => {
 
 // Ingredient Selector Component
 const IngredientSelector = ({ item, onAdd, isSelected, availableUnits }) => {
-  const [quantity, setQuantity] = useState('');
+  const [quantity, setQuantity] = useState("");
   const [selectedUnit, setSelectedUnit] = useState(item.unit);
 
   const handleAdd = () => {
     if (quantity && parseFloat(quantity) > 0) {
       onAdd(item, quantity, selectedUnit);
-      setQuantity('');
+      setQuantity("");
     }
   };
 
   return (
-    <div className={`ingredient-selector ${isSelected ? 'selected' : ''}`}>
+    <div className={`ingredient-selector ${isSelected ? "selected" : ""}`}>
       <div className="ingredient-info">
         <span className="ingredient-name">{item.name}</span>
         <span className="ingredient-available">
@@ -722,7 +887,7 @@ const IngredientSelector = ({ item, onAdd, isSelected, availableUnits }) => {
           LKR{item.costPerUnit}/{item.unit}
         </span>
       </div>
-      
+
       <div className="ingredient-controls">
         <input
           type="number"
@@ -733,19 +898,21 @@ const IngredientSelector = ({ item, onAdd, isSelected, availableUnits }) => {
           step="0.01"
           className="quantity-input"
         />
-        
+
         <select
           value={selectedUnit}
           onChange={(e) => setSelectedUnit(e.target.value)}
           className="unit-select"
         >
-          {availableUnits.map(unit => (
-            <option key={unit} value={unit}>{unit}</option>
+          {availableUnits.map((unit) => (
+            <option key={unit} value={unit}>
+              {unit}
+            </option>
           ))}
         </select>
-        
-        <button 
-          type="button" 
+
+        <button
+          type="button"
           onClick={handleAdd}
           className="add-ingredient-btn"
           disabled={!quantity || parseFloat(quantity) <= 0}
