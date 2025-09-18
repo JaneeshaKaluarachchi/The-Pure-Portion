@@ -11,6 +11,8 @@ const recipeRoutes = require('./routes/recipeRoutes');
 const portionRoutes = require('./routes/portionRoutes');
 const leftoverRoutes = require('./routes/leftoverRoutes');
 const financeRoutes = require('./routes/financeRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes');
+const RestaurantSettings =  require('./routes/settingsRoutes')
 
 const app = express();
 
@@ -30,10 +32,12 @@ mongoose.connect(process.env.MONGODB_URI)
 app.use('/api/users', userRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/attendance',attendanceRoutes);
 app.use('/api/recipes', recipeRoutes);
 app.use('/api/portions', portionRoutes);
 app.use('/api/leftovers', leftoverRoutes);
 app.use('/api/finance', financeRoutes);
+app.use('/api/settings',RestaurantSettings);
 
 
 

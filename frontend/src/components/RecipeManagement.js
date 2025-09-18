@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import "../styles/RecipeManagement.css";
+import '../styles/RecipeManagement.css';
 import LoadingScreen from "./LoadingScreen";
 
 const RecipeManagement = () => {
@@ -137,6 +137,8 @@ const RecipeManagement = () => {
         imageUrl: imageUrl,
         status: "active",
         subcategory: formData.category, // Store curry/meal subcategory
+        totalCost,           // 👈 add this
+        costPerServing,
       };
 
       await axios.post("http://localhost:5000/api/recipes", recipeData, {
@@ -154,69 +156,83 @@ const RecipeManagement = () => {
     }
   };
   
-  // Convert quantity from selectedUnit to baseUnit
-const convertToBaseUnit = (quantity, selectedUnit, baseUnit) => {
-  if (selectedUnit === baseUnit) return quantity;
-
-  const conversionRates = {
-    // Weight
-    kg: { g: 1000, lb: 0.453592, oz: 0.0283495 },
-    g: { kg: 0.001, lb: 453.592, oz: 28.3495 },
-    lb: { kg: 2.20462, g: 0.00220462, oz: 0.0625 },
-    oz: { kg: 35.274, g: 0.035274, lb: 16 },
-
-    // Volume
-    l: { ml: 0.001, cup: 0.236588, tbsp: 0.0147868, tsp: 0.00492892 },
-    ml: { l: 1000, cup: 236.588, tbsp: 14.7868, tsp: 4.92892 },
-    cup: { l: 4.22675, ml: 0.00422675, tbsp: 16, tsp: 48 },
-    tbsp: { l: 67.628, ml: 0.067628, cup: 0.0625, tsp: 3 },
-    tsp: { l: 202.884, ml: 0.202884, cup: 0.0208333, tbsp: 0.333333 },
-
-    // Count
-    pcs: { dozen: 0.0833333 },
-    dozen: { pcs: 12 }
+  // Improved unit conversion function
+  const convertUnits = (quantity, fromUnit, toUnit) => {
+    if (fromUnit === toUnit) return quantity;
+    
+    // Conversion rates to base units (kg for weight, l for volume)
+    const weightConversions = {
+      'g': 0.001,    // g to kg
+      'kg': 1,       // kg to kg
+      'lb': 0.453592, // lb to kg
+      'oz': 0.0283495 // oz to kg
+    };
+    
+    const volumeConversions = {
+      'ml': 0.001,   // ml to l
+      'l': 1,        // l to l
+      'cup': 0.236588, // cup to l
+      'tbsp': 0.0147868, // tbsp to l
+      'tsp': 0.00492892  // tsp to l
+    };
+    
+    const countConversions = {
+      'pieces': 1,
+      'pcs': 1,
+      'dozen': 12,
+      'packs': 1,
+      'bottles': 1,
+      'cans': 1,
+      'boxes': 1
+    };
+    
+    // Determine conversion type
+    let conversions = null;
+    if (weightConversions[fromUnit] && weightConversions[toUnit]) {
+      conversions = weightConversions;
+    } else if (volumeConversions[fromUnit] && volumeConversions[toUnit]) {
+      conversions = volumeConversions;
+    } else if (countConversions[fromUnit] && countConversions[toUnit]) {
+      conversions = countConversions;
+    }
+    
+    if (!conversions) {
+      console.warn(`Cannot convert from ${fromUnit} to ${toUnit}`);
+      return quantity; // Return original if conversion not possible
+    }
+    
+    // Convert: fromUnit -> base -> toUnit
+    const baseQuantity = quantity * conversions[fromUnit];
+    return baseQuantity / conversions[toUnit];
   };
 
-  // If baseUnit exists in conversionRates and selectedUnit mapping exists
-  if (baseUnit === 'kg' && selectedUnit === 'g') return quantity / 1000;  // simplest fix for kg/g
-  if (conversionRates[baseUnit] && conversionRates[baseUnit][selectedUnit]) {
-    return quantity * conversionRates[baseUnit][selectedUnit];
-  }
-
-  console.warn(`No conversion found from ${selectedUnit} to ${baseUnit}`);
-  return quantity; // fallback
-};
-
-
   const addIngredient = (inventoryItem, quantity, unit) => {
-  if (!quantity || quantity <= 0) {
-    alert('Please enter a valid quantity');
-    return;
-  }
+    if (!quantity || quantity <= 0) {
+      alert('Please enter a valid quantity');
+      return;
+    }
 
-  const existingIndex = selectedIngredients.findIndex(
-    (ing) => ing.inventoryItemId === inventoryItem._id
-  );
+    const existingIndex = selectedIngredients.findIndex(
+      (ing) => ing.inventoryItemId === inventoryItem._id
+    );
 
-  if (existingIndex !== -1) {
-    const updated = [...selectedIngredients];
-    updated[existingIndex].quantity = parseFloat(quantity);
-    updated[existingIndex].unit = unit;
-    updated[existingIndex].baseUnit = inventoryItem.unit; // Add base unit
-    setSelectedIngredients(updated);
-  } else {
-    const newIngredient = {
-      inventoryItemId: inventoryItem._id,
-      itemName: inventoryItem.name,
-      quantity: parseFloat(quantity),
-      unit: unit,
-      costPerUnit: inventoryItem.costPerUnit,
-      baseUnit: inventoryItem.unit // Base unit here
-    };
-    setSelectedIngredients([...selectedIngredients, newIngredient]);
-  }
-};
-
+    if (existingIndex !== -1) {
+      const updated = [...selectedIngredients];
+      updated[existingIndex].quantity = parseFloat(quantity);
+      updated[existingIndex].unit = unit;
+      setSelectedIngredients(updated);
+    } else {
+      const newIngredient = {
+        inventoryItemId: inventoryItem._id,
+        itemName: inventoryItem.name,
+        quantity: parseFloat(quantity),
+        unit: unit,
+        baseUnit: inventoryItem.unit, // Store inventory base unit
+        costPerUnit: inventoryItem.costPerUnit
+      };
+      setSelectedIngredients([...selectedIngredients, newIngredient]);
+    }
+  };
 
   const removeIngredient = (index) => {
     const updated = selectedIngredients.filter((_, i) => i !== index);
@@ -303,6 +319,8 @@ const convertToBaseUnit = (quantity, selectedUnit, baseUnit) => {
         imageUrl: imageUrl,
         status: "active",
         subcategory: formData.category,
+        totalCost,       // ✅ now safe
+        costPerServing,  // ✅ now safe
       };
 
       await axios.put(
@@ -351,21 +369,23 @@ const convertToBaseUnit = (quantity, selectedUnit, baseUnit) => {
       )
     : [];
 
-const calculateTotalCost = () => {
-  return selectedIngredients.reduce((total, ingredient) => {
-    // Convert quantity to base unit
-    const baseQuantity = convertToBaseUnit(
-      ingredient.quantity,
-      ingredient.unit,
-      ingredient.baseUnit
-    );
-    return total + baseQuantity * ingredient.costPerUnit;
-  }, 0);
-};
-
+  // Calculate total cost with proper unit conversion
+  const calculateTotalCost = () => {
+    return selectedIngredients.reduce((total, ingredient) => {
+      // Convert quantity to base unit for cost calculation
+      const baseQuantity = convertUnits(
+        ingredient.quantity,
+        ingredient.unit,
+        ingredient.baseUnit
+      );
+      return total + baseQuantity * ingredient.costPerUnit;
+    }, 0);
+  };
+  const totalCost = calculateTotalCost();
+  const costPerServing = totalCost / formData.servings;
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-LK", {
       style: "currency",
       currency: "LKR",
     }).format(amount);
@@ -389,11 +409,13 @@ const calculateTotalCost = () => {
       tsp: ["tsp", "tbsp", "cup", "ml"],
 
       // Count units
-      pcs: ["pcs", "dozen"],
-      dozen: ["dozen", "pcs"],
-
-      // Default
-      unit: ["unit", "pcs"],
+      pieces: ["pieces", "pcs", "dozen"],
+      pcs: ["pcs", "pieces", "dozen"],
+      dozen: ["dozen", "pcs", "pieces"],
+      packs: ["packs", "pieces"],
+      bottles: ["bottles", "pieces"],
+      cans: ["cans", "pieces"],
+      boxes: ["boxes", "pieces"],
     };
 
     return unitGroups[baseUnit] || [baseUnit];
@@ -411,7 +433,6 @@ const calculateTotalCost = () => {
 
       {!showCreateForm && !showEditForm ? (
         <>
-          {/* Main Dashboard */}
           <div className="recipe-dashboard">
             <div className="create-options">
               <div
@@ -434,7 +455,6 @@ const calculateTotalCost = () => {
             </div>
           </div>
 
-          {/* Existing Recipes */}
           {recipes.length > 0 && (
             <div className="existing-recipes">
               <h3>Your Recipes</h3>
@@ -455,8 +475,10 @@ const calculateTotalCost = () => {
                           ? `${recipe.subcategory} curry`
                           : recipe.subcategory}
                       </p>
+                      
                       <div className="recipe-meta">
                         <span>💰 {formatCurrency(recipe.costPerServing)}</span>
+                        <span>👥 {recipe.servings} servings</span>
                       </div>
                       <div className="recipe-ingredients-count">
                         🥘 {recipe.ingredients.length} ingredients
@@ -484,382 +506,217 @@ const calculateTotalCost = () => {
             </div>
           )}
         </>
-      ) : showCreateForm ? (
-        /* Create Form */
-        <div className="create-form">
-          <div className="form-header">
-            <h3>Create {recipeType === "curry" ? "Curry" : "New Meal"}</h3>
-            <button className="close-btn" onClick={resetForm}>
-              ×
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="recipe-form">
-            <div className="form-section">
-              <div className="form-row">
-                <div className="form-group">
-                  <label>
-                    {recipeType === "curry" ? "Curry Name" : "Meal Name"} *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    required
-                    placeholder={
-                      recipeType === "curry"
-                        ? "e.g., Daal Curry"
-                        : "e.g., Fried Rice"
-                    }
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Category *</label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) =>
-                      setFormData({ ...formData, category: e.target.value })
-                    }
-                    required
-                  >
-                    <option value="">Select Category</option>
-                    {(recipeType === "curry"
-                      ? curryCategories
-                      : mealCategories
-                    ).map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  rows="3"
-                  placeholder="Describe your recipe..."
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Upload Image (Optional)</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      setFormData({ ...formData, imageFile: file });
-                      // Create preview URL
-                      const reader = new FileReader();
-                      reader.onload = (e) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          imageUrl: e.target.result,
-                        }));
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                  className="file-input"
-                />
-                {formData.imageUrl && (
-                  <div className="image-preview">
-                    <img src={formData.imageUrl} alt="Preview" />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Ingredients Selection */}
-            <div className="ingredients-section">
-              <h4>Select Ingredients (for 1 person)</h4>
-
-              <div className="ingredient-search">
-                <input
-                  type="text"
-                  placeholder="Search ingredients from inventory..."
-                  value={ingredientSearch}
-                  onChange={(e) => setIngredientSearch(e.target.value)}
-                  className="search-input"
-                />
-              </div>
-
-              <div className="inventory-items">
-                {ingredientSearch.trim() === "" ? (
-                  <div className="search-prompt">
-                    <p>Start typing to search for ingredients...</p>
-                  </div>
-                ) : filteredInventoryItems.length === 0 ? (
-                  <div className="no-results">
-                    <p>No ingredients found for "{ingredientSearch}"</p>
-                  </div>
-                ) : (
-                  filteredInventoryItems.map((item) => (
-                    <IngredientSelector
-                      key={item._id}
-                      item={item}
-                      onAdd={addIngredient}
-                      isSelected={selectedIngredients.some(
-                        (ing) => ing.inventoryItemId === item._id
-                      )}
-                      availableUnits={getAvailableUnits(item)}
-                    />
-                  ))
-                )}
-              </div>
-
-              {selectedIngredients.length > 0 && (
-                <div className="selected-ingredients">
-                  <h5>Selected Ingredients:</h5>
-                  {selectedIngredients.map((ingredient, index) => (
-                    <div key={index} className="selected-ingredient">
-                      <span className="ingredient-name">
-                        {ingredient.itemName}
-                      </span>
-                      <span className="ingredient-quantity">
-                        {(ingredient.quantity)} {ingredient.unit}
-                      </span>
-                      <span className="ingredient-cost">
-                        {formatCurrency(
-                          convertToBaseUnit(
-                            ingredient.quantity,
-                            ingredient.unit,
-                            ingredient.baseUnit
-                          ) * ingredient.costPerUnit 
-                        )}
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={() => removeIngredient(index)}
-                        className="remove-btn"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                  <div className="total-cost">
-                    <strong>
-                      Total Cost: {formatCurrency(calculateTotalCost())}
-                    </strong>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="form-actions">
-              <button
-                type="button"
-                onClick={resetForm}
-                className="btn-secondary"
-              >
-                Cancel
-              </button>
-              <button type="submit" className="btn-primary">
-                Create {recipeType === "curry" ? "Curry" : "Meal"}
-              </button>
-            </div>
-          </form>
-        </div>
       ) : (
-        showEditForm && (
-          /* Edit Form */
-          <div className="create-form">
-            <div className="form-header">
-              <h3>Edit {recipeType === "curry" ? "Curry" : "Meal"}</h3>
-              <button className="close-btn" onClick={resetForm}>
-                ×
-              </button>
+        <RecipeForm
+          isEdit={showEditForm}
+          recipeType={recipeType}
+          formData={formData}
+          setFormData={setFormData}
+          selectedIngredients={selectedIngredients}
+          setSelectedIngredients={setSelectedIngredients}
+          ingredientSearch={ingredientSearch}
+          setIngredientSearch={setIngredientSearch}
+          inventoryItems={inventoryItems}
+          onSubmit={showEditForm ? handleUpdateRecipe : handleSubmit}
+          onCancel={resetForm}
+          curryCategories={curryCategories}
+          mealCategories={mealCategories}
+          addIngredient={addIngredient}
+          removeIngredient={removeIngredient}
+          calculateTotalCost={calculateTotalCost}
+          formatCurrency={formatCurrency}
+          getAvailableUnits={getAvailableUnits}
+          convertUnits={convertUnits}
+        />
+      )}
+    </div>
+  );
+};
+
+// Recipe Form Component
+const RecipeForm = ({
+  isEdit,
+  recipeType,
+  formData,
+  setFormData,
+  selectedIngredients,
+  ingredientSearch,
+  setIngredientSearch,
+  inventoryItems,
+  onSubmit,
+  onCancel,
+  curryCategories,
+  mealCategories,
+  addIngredient,
+  removeIngredient,
+  calculateTotalCost,
+  formatCurrency,
+  getAvailableUnits,
+  convertUnits
+}) => {
+  const filteredInventoryItems = ingredientSearch.trim()
+    ? inventoryItems.filter((item) =>
+        item.name.toLowerCase().includes(ingredientSearch.toLowerCase())
+      )
+    : [];
+
+  return (
+    <div className="create-form">
+      <div className="form-header">
+        <h3>{isEdit ? 'Edit' : 'Create'} {recipeType === "curry" ? "Curry" : "New Meal"}</h3>
+        <button className="close-btn" onClick={onCancel}>×</button>
+      </div>
+
+      <form onSubmit={onSubmit} className="recipe-form">
+        <div className="form-section">
+          <div className="form-row">
+            <div className="form-group">
+              <label>{recipeType === "curry" ? "Curry Name" : "Meal Name"} *</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+                placeholder={recipeType === "curry" ? "e.g., Daal Curry" : "e.g., Fried Rice"}
+              />
             </div>
 
-            <form onSubmit={handleUpdateRecipe} className="recipe-form">
-              <div className="form-section">
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>
-                      {recipeType === "curry" ? "Curry Name" : "Meal Name"} *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
-                      required
-                      placeholder={
-                        recipeType === "curry"
-                          ? "e.g., Daal Curry"
-                          : "e.g., Fried Rice"
-                      }
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Category *</label>
-                    <select
-                      value={formData.category}
-                      onChange={(e) =>
-                        setFormData({ ...formData, category: e.target.value })
-                      }
-                      required
-                    >
-                      <option value="">Select Category</option>
-                      {(recipeType === "curry"
-                        ? curryCategories
-                        : mealCategories
-                      ).map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Description</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    rows="3"
-                    placeholder="Describe your recipe..."
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Upload New Image (Optional)</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        setFormData({ ...formData, imageFile: file });
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                          setFormData((prev) => ({
-                            ...prev,
-                            imageUrl: e.target.result,
-                          }));
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                    className="file-input"
-                  />
-                  {formData.imageUrl && (
-                    <div className="image-preview">
-                      <img src={formData.imageUrl} alt="Preview" />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Ingredients Selection */}
-              <div className="ingredients-section">
-                <h4>Update Ingredients</h4>
-
-                <div className="ingredient-search">
-                  <input
-                    type="text"
-                    placeholder="Search ingredients from inventory..."
-                    value={ingredientSearch}
-                    onChange={(e) => setIngredientSearch(e.target.value)}
-                    className="search-input"
-                  />
-                </div>
-
-                <div className="inventory-items">
-                  {ingredientSearch.trim() === "" ? (
-                    <div className="search-prompt">
-                      <p>Start typing to search for ingredients...</p>
-                    </div>
-                  ) : filteredInventoryItems.length === 0 ? (
-                    <div className="no-results">
-                      <p>No ingredients found for "{ingredientSearch}"</p>
-                    </div>
-                  ) : (
-                    filteredInventoryItems.map((item) => (
-                      <IngredientSelector
-                        key={item._id}
-                        item={item}
-                        onAdd={addIngredient}
-                        isSelected={selectedIngredients.some(
-                          (ing) => ing.inventoryItemId === item._id
-                        )}
-                        availableUnits={getAvailableUnits(item)}
-                      />
-                    ))
-                  )}
-                </div>
-
-                {selectedIngredients.length > 0 && (
-                  <div className="selected-ingredients">
-                    <h5>Selected Ingredients:</h5>
-                    {selectedIngredients.map((ingredient, index) => (
-                      <div key={index} className="selected-ingredient">
-                        <span className="ingredient-name">
-                          {ingredient.itemName}
-                        </span>
-                        <span className="ingredient-quantity">
-                          {ingredient.quantity} {ingredient.unit}
-                        </span>
-                        <span className="ingredient-cost">
-                          {formatCurrency(
-                            convertToBaseUnit(
-                              ingredient.quantity,
-                              ingredient.unit,
-                              ingredient.baseUnit
-                            ) * ingredient.costPerUnit
-                          )}
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() => removeIngredient(index)}
-                          className="remove-btn"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                    <div className="total-cost">
-                      <strong>
-                        Total Cost: {formatCurrency(calculateTotalCost())}
-                      </strong>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="form-actions">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary">
-                  Update {recipeType === "curry" ? "Curry" : "Meal"}
-                </button>
-              </div>
-            </form>
+            <div className="form-group">
+              <label>Category *</label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                required
+              >
+                <option value="">Select Category</option>
+                {(recipeType === "curry" ? curryCategories : mealCategories).map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        )
-      )}
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Servings *</label>
+              <input
+                type="number"
+                value={formData.servings}
+                onChange={(e) => setFormData({ ...formData, servings: parseInt(e.target.value) || 1 })}
+                required
+                min="1"
+                max="50"
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              rows="3"
+              placeholder="Describe your recipe..."
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Upload Image (Optional)</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (file) {
+                  setFormData({ ...formData, imageFile: file });
+                  const reader = new FileReader();
+                  reader.onload = (e) => {
+                    setFormData((prev) => ({ ...prev, imageUrl: e.target.result }));
+                  };
+                  reader.readAsDataURL(file);
+                }
+              }}
+              className="file-input"
+            />
+            {formData.imageUrl && (
+              <div className="image-preview">
+                <img src={formData.imageUrl} alt="Preview" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="ingredients-section">
+          <h4>Select Ingredients (for {formData.servings} serving{formData.servings > 1 ? 's' : ''})</h4>
+
+          <div className="ingredient-search">
+            <input
+              type="text"
+              placeholder="Search ingredients from inventory..."
+              value={ingredientSearch}
+              onChange={(e) => setIngredientSearch(e.target.value)}
+              className="search-input"
+            />
+          </div>
+
+          <div className="inventory-items">
+            {ingredientSearch.trim() === "" ? (
+              <div className="search-prompt">
+                <p>Start typing to search for ingredients...</p>
+              </div>
+            ) : filteredInventoryItems.length === 0 ? (
+              <div className="no-results">
+                <p>No ingredients found for "{ingredientSearch}"</p>
+              </div>
+            ) : (
+              filteredInventoryItems.map((item) => (
+                <IngredientSelector
+                  key={item._id}
+                  item={item}
+                  onAdd={addIngredient}
+                  isSelected={selectedIngredients.some((ing) => ing.inventoryItemId === item._id)}
+                  availableUnits={getAvailableUnits(item)}
+                />
+              ))
+            )}
+          </div>
+
+          {selectedIngredients.length > 0 && (
+            <div className="selected-ingredients">
+              <h5>Selected Ingredients:</h5>
+              {selectedIngredients.map((ingredient, index) => (
+                <div key={index} className="selected-ingredient">
+                  <span className="ingredient-name">{ingredient.itemName}</span>
+                  <span className="ingredient-quantity">{ingredient.quantity} {ingredient.unit}</span>
+                  <span className="ingredient-cost">
+                    {formatCurrency(
+                      convertUnits(ingredient.quantity, ingredient.unit, ingredient.baseUnit) * ingredient.costPerUnit
+                    )}
+                  </span>
+                  <button type="button" onClick={() => removeIngredient(index)} className="remove-btn">
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <div className="total-cost">
+                <strong>Total Cost: {formatCurrency(calculateTotalCost())}</strong>
+                <div className="cost-per-serving">
+                  Cost per serving: {formatCurrency(calculateTotalCost() / formData.servings)}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="form-actions">
+          <button type="button" onClick={onCancel} className="btn-secondary">Cancel</button>
+          <button type="submit" className="btn-primary">
+            {isEdit ? 'Update' : 'Create'} {recipeType === "curry" ? "Curry" : "Meal"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };
@@ -880,12 +737,8 @@ const IngredientSelector = ({ item, onAdd, isSelected, availableUnits }) => {
     <div className={`ingredient-selector ${isSelected ? "selected" : ""}`}>
       <div className="ingredient-info">
         <span className="ingredient-name">{item.name}</span>
-        <span className="ingredient-available">
-          Available: {item.currentQuantity} {item.unit}
-        </span>
-        <span className="ingredient-cost">
-          LKR{item.costPerUnit}/{item.unit}
-        </span>
+        <span className="ingredient-available">Available: {item.currentQuantity} {item.unit}</span>
+        <span className="ingredient-cost">LKR {item.costPerUnit}/{item.unit}</span>
       </div>
 
       <div className="ingredient-controls">
@@ -905,9 +758,7 @@ const IngredientSelector = ({ item, onAdd, isSelected, availableUnits }) => {
           className="unit-select"
         >
           {availableUnits.map((unit) => (
-            <option key={unit} value={unit}>
-              {unit}
-            </option>
+            <option key={unit} value={unit}>{unit}</option>
           ))}
         </select>
 

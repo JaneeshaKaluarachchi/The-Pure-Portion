@@ -2,6 +2,11 @@ import React, { useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import Profile from '../components/Profile';
 import '../styles/Dashboard.css';
+import RecipeManagement from '../components/RecipeManagement';
+import PortionCalculator from '../components/PortionCalculator';
+import LeftoverManagement from '../components/LeftoverManagement';
+import StaffManagement from '../components/StaffManagement';
+import FinanceManagement from '../components/FinanceDashboard';
 
 const HouseholdDashboard = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -9,44 +14,29 @@ const HouseholdDashboard = () => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     { id: 'profile', label: 'Profile', icon: '👤' },
+    { id: 'staff-management', label: 'Staff Management', icon: '🥗' },
     { id: 'portion-calculation', label: 'Portion Calculator', icon: '🍽️' },
-    { id: 'nutrition-analysis', label: 'Nutrition Analysis', icon: '🥗' },
+    { id: 'recipe-management', label: 'Recipe Management', icon: '🍛' },
     { id: 'leftover-management', label: 'Manage Leftovers', icon: '♻️' },
     { id: 'finance-management', label: 'Finance Management', icon: '💰' }
   ];
 
+      
+       
   const renderContent = () => {
     switch (activeSection) {
       case 'profile':
         return <Profile />;
       case 'portion-calculation':
-        return (
-          <div className="content-section">
-            <h2>Portion Calculator</h2>
-            <p>Calculate exact portions for your family meals. This feature will be implemented next.</p>
-          </div>
-        );
-      case 'nutrition-analysis':
-        return (
-          <div className="content-section">
-            <h2>Nutrition Analysis</h2>
-            <p>Analyze nutritional content of your meals. This feature will be implemented next.</p>
-          </div>
-        );
+        return <PortionCalculator />;
+      case 'recipe-management':
+        return <RecipeManagement />;
       case 'leftover-management':
-        return (
-          <div className="content-section">
-            <h2>Leftover Management</h2>
-            <p>Manage and get recipes for your leftovers. This feature will be implemented next.</p>
-          </div>
-        );
+        return <LeftoverManagement />;
+      case 'staff-management':
+        return <StaffManagement />;
       case 'finance-management':
-        return (
-          <div className="content-section">
-            <h2>Finance Management</h2>
-            <p>Track your household food expenses. This feature will be implemented next.</p>
-          </div>
-        );
+        return <FinanceManagement />;
       default:
         return (
           <div className="dashboard-overview">

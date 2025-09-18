@@ -4,14 +4,6 @@ const staffLoanSchema = new mongoose.Schema({
   loanId: {
     type: String,
     unique: true,
-    required: true,
-    default: function() {
-      return 'LOAN' + Date.now() + Math.random().toString(36).substr(2, 4).toUpperCase();
-    }
-  },
-  staffId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Staff',
     required: true
   },
   restaurantId: {
@@ -19,116 +11,38 @@ const staffLoanSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  loanAmount: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  interestRate: {
-    type: Number,
-    default: 0,
-    min: 0,
-    max: 100
-  },
-  loanTerm: {
-    type: Number,
-    required: true,
-    min: 1 // months
-  },
-  monthlyInstallment: {
-    type: Number,
-    required: true
-  },
-  totalAmount: {
-    type: Number,
-    required: true
-  },
-  amountPaid: {
-    type: Number,
-    default: 0
-  },
-  remainingAmount: {
-    type: Number,
-    required: true
-  },
-  startDate: {
-    type: Date,
-    required: true,
-    default: Date.now
-  },
-  endDate: {
-    type: Date,
-    required: true
-  },
-  purpose: {
-    type: String,
-    required: true
-  },
-  status: {
-    type: String,
-    enum: ['active', 'completed', 'defaulted', 'cancelled'],
-    default: 'active'
-  },
-  paymentHistory: [{
-    paymentDate: { type: Date, required: true },
-    amountPaid: { type: Number, required: true },
-    principalAmount: { type: Number, required: true },
-    interestAmount: { type: Number, default: 0 },
-    remainingBalance: { type: Number, required: true },
-    paymentMethod: { 
-      type: String, 
-      enum: ['salary_deduction', 'cash', 'bank_transfer'],
-      default: 'salary_deduction'
-    },
-    notes: String
-  }],
-  approvedBy: {
+  staffId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Staff',
     required: true
   },
-  approvalDate: {
-    type: Date,
-    default: Date.now
-  },
-  guarantor: {
-    name: String,
-    phone: String,
-    relationship: String
-  },
-  documents: [String],
-  notes: String
-}, {
-  timestamps: true
+  loanAmount: { type: Number, required: true, min: 0 },
+  remainingAmount: { type: Number, required: true, min: 0 },
+  interestRate: { type: Number, default: 0, min: 0, max: 100 },
+  loanDate: { type: Date, default: Date.now },
+  dueDate: { type: Date, required: true },
+  status: { type: String, enum: ['active', 'completed', 'defaulted'], default: 'active' },
+  description: { type: String, trim: true },
+  payments: [{
+    amount: { type: Number, required: true, min: 0 },
+    paymentDate: { type: Date, default: Date.now },
+    description: String
+  }],
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
 });
 
-// Calculate monthly installment before saving
-staffLoanSchema.pre('save', function(next) {
-  if (this.isNew || this.isModified(['loanAmount', 'interestRate', 'loanTerm'])) {
-    const principal = this.loanAmount;
-    const rate = this.interestRate / 100 / 12; // Monthly interest rate
-    const term = this.loanTerm;
-    
-    if (rate > 0) {
-      this.monthlyInstallment = principal * (rate * Math.pow(1 + rate, term)) / (Math.pow(1 + rate, term) - 1);
-      this.totalAmount = this.monthlyInstallment * term;
-    } else {
-      this.monthlyInstallment = principal / term;
-      this.totalAmount = principal;
-    }
-    
-    this.remainingAmount = this.totalAmount - this.amountPaid;
-    
-    // Calculate end date
-    const endDate = new Date(this.startDate);
-    endDate.setMonth(endDate.getMonth() + term);
-    this.endDate = endDate;
+// Auto-generate loanId before saving
+staffLoanSchema.pre('save', async function(next) {
+  if (!this.loanId) {
+    this.loanId = `LOAN-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
   }
+  this.updatedAt = Date.now();
   next();
 });
 
-// Indexes
-staffLoanSchema.index({ staffId: 1, status: 1 });
-staffLoanSchema.index({ restaurantId: 1, status: 1 });
+// Indexes for faster queries
+staffLoanSchema.index({ restaurantId: 1, staffId: 1 });
+staffLoanSchema.index({ status: 1 });
 
 module.exports = mongoose.model('StaffLoan', staffLoanSchema);

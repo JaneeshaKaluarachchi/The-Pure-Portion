@@ -2,6 +2,56 @@ const Recipe = require('../models/Recipe');
 const Inventory = require('../models/Inventory');
 const mongoose = require('mongoose');
 
+// Helper function for unit conversion
+const convertUnits = (quantity, fromUnit, toUnit) => {
+  if (fromUnit === toUnit) return quantity;
+  
+  // Conversion rates to base units (kg for weight, l for volume)
+  const weightConversions = {
+    'g': 0.001,    // g to kg
+    'kg': 1,       // kg to kg
+    'lb': 0.453592, // lb to kg
+    'oz': 0.0283495 // oz to kg
+  };
+  
+  const volumeConversions = {
+    'ml': 0.001,   // ml to l
+    'l': 1,        // l to l
+    'cup': 0.236588, // cup to l
+    'tbsp': 0.0147868, // tbsp to l
+    'tsp': 0.00492892  // tsp to l
+  };
+  
+  const countConversions = {
+    'pieces': 1,
+    'pcs': 1,
+    'dozen': 12,
+    'packs': 1,
+    'bottles': 1,
+    'cans': 1,
+    'boxes': 1
+  };
+  
+  // Determine conversion type
+  let conversions = null;
+  if (weightConversions[fromUnit] && weightConversions[toUnit]) {
+    conversions = weightConversions;
+  } else if (volumeConversions[fromUnit] && volumeConversions[toUnit]) {
+    conversions = volumeConversions;
+  } else if (countConversions[fromUnit] && countConversions[toUnit]) {
+    conversions = countConversions;
+  }
+  
+  if (!conversions) {
+    console.warn(`Cannot convert from ${fromUnit} to ${toUnit}`);
+    return quantity; // Return original if conversion not possible
+  }
+  
+  // Convert: fromUnit -> base -> toUnit
+  const baseQuantity = quantity * conversions[fromUnit];
+  return baseQuantity / conversions[toUnit];
+};
+
 // Add new recipe
 const addRecipe = async (req, res) => {
   try {
@@ -25,9 +75,10 @@ const addRecipe = async (req, res) => {
           inventoryItemId: ingredient.inventoryItemId,
           itemName: inventoryItem.name,
           quantity: Number(ingredient.quantity),
-          unit: inventoryItem.unit,
+          unit: ingredient.unit, // User selected unit
+          baseUnit: inventoryItem.unit, // Inventory base unit
           costPerUnit: inventoryItem.costPerUnit,
-          totalCost: Number(ingredient.quantity) * inventoryItem.costPerUnit
+          totalCost: 0 // Will be calculated in pre-save hook
         };
       })
     );
@@ -36,6 +87,7 @@ const addRecipe = async (req, res) => {
       name: req.body.name,
       description: req.body.description || '',
       category: req.body.category,
+      subcategory: req.body.subcategory || req.body.category,
       cuisine: req.body.cuisine || 'sri-lankan',
       servings: Number(req.body.servings),
       prepTime: Number(req.body.prepTime) || 30,
@@ -53,7 +105,6 @@ const addRecipe = async (req, res) => {
       isDairyFree: Boolean(req.body.isDairyFree),
       status: req.body.status || 'active',
       notes: req.body.notes || '',
-      subcategory: req.body.subcategory || req.body.category,
       imageUrl: req.body.imageUrl || ''
     };
 
@@ -153,15 +204,15 @@ const updateRecipe = async (req, res) => {
             throw new Error(`Inventory item not found: ${ingredient.inventoryItemId}`);
           }
           
-         return {
-  inventoryItemId: ingredient.inventoryItemId,
-  itemName: inventoryItem.name,
-  quantity: Number(ingredient.quantity),   // from frontend
-  unit: ingredient.unit || inventoryItem.unit, // use user-selected if available
-  costPerUnit: inventoryItem.costPerUnit,
-  totalCost: Number(ingredient.quantity) * inventoryItem.costPerUnit
-};
-
+          return {
+            inventoryItemId: ingredient.inventoryItemId,
+            itemName: inventoryItem.name,
+            quantity: Number(ingredient.quantity),
+            unit: ingredient.unit, // User selected unit
+            baseUnit: inventoryItem.unit, // Inventory base unit
+            costPerUnit: inventoryItem.costPerUnit,
+            totalCost: 0 // Will be calculated in pre-save hook
+          };
         })
       );
     }
@@ -231,16 +282,20 @@ const checkIngredientAvailability = async (req, res) => {
     
     const availability = recipe.ingredients.map(ingredient => {
       const requiredQuantity = ingredient.quantity * multiplier;
+      // Convert required quantity to inventory base unit for comparison
+      const requiredInBaseUnit = convertUnits(requiredQuantity, ingredient.unit, ingredient.baseUnit);
       const availableQuantity = ingredient.inventoryItemId.currentQuantity;
-      const isAvailable = availableQuantity >= requiredQuantity;
+      const isAvailable = availableQuantity >= requiredInBaseUnit;
       
       return {
         itemName: ingredient.itemName,
         required: requiredQuantity,
+        requiredUnit: ingredient.unit,
+        requiredInBaseUnit: requiredInBaseUnit,
         available: availableQuantity,
-        unit: ingredient.unit,
+        availableUnit: ingredient.baseUnit,
         isAvailable,
-        shortage: isAvailable ? 0 : requiredQuantity - availableQuantity
+        shortage: isAvailable ? 0 : requiredInBaseUnit - availableQuantity
       };
     });
 

@@ -1,4 +1,5 @@
 .recipe-management {
+  background-image: url("./images/Untitled\ design\(68\).png");
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
@@ -122,7 +123,7 @@
 
 .form-group {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
 }
 
 .form-group label {
@@ -198,8 +199,13 @@
   border: 1px solid #ecf0f1;
   border-radius: 8px;
   background: white;
+  
 }
-
+.category-items {
+  display: flex;
+  flex-wrap: wrap;   /* allows wrapping to the next row */
+  gap: 15px;         /* space between items */
+}
 .ingredient-selector {
   display: flex;
   justify-content: space-between;

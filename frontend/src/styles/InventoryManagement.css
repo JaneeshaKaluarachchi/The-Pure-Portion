@@ -117,9 +117,10 @@
 
 /* Filters */
 .inventory-filters {
+  margin-top: 100px;
   display: flex;
   gap: 15px;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
   flex-wrap: wrap;
 }
 
@@ -250,6 +251,7 @@
 
 /* Table */
 .inventory-table {
+ 
   background: white;
   border-radius: 12px;
   overflow: hidden;
@@ -258,7 +260,7 @@
 }
 
 .inventory-table table {
-  width: 100%;
+  width:100%;
   border-collapse: collapse;
 }
 
@@ -266,14 +268,16 @@
   background: #34495e;
   color: white;
   padding: 15px 12px;
-  text-align: left;
+  text-align: center;
   font-weight: 600;
   font-size: 14px;
+
 }
 
 .inventory-table td {
-  padding: 12px;
-  border-bottom: 1px solid #ecf0f1;
+ padding: 10px;
+  text-align: center;
+  border-bottom: 1px solid #d2d2d2;
   font-size: 14px;
 }
 

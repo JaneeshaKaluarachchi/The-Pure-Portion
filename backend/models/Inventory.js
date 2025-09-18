@@ -42,11 +42,18 @@ const inventorySchema = new mongoose.Schema({
     type: Number,
     default: null
   },
-  costPerUnit: {
-    type: Number,
-    required: true,
-    default: 0
-  },
+ costPerUnit: {
+  type: Number,
+  required: true,
+  default: 0
+},
+costUnit: {
+  type: String,
+  required: true,
+  enum: ['kg', 'g', 'l', 'ml', 'pieces', 'packs', 'bottles', 'cans', 'boxes'],
+  default: 'kg'
+},
+
   supplier: {
     name: String,
     contact: String,

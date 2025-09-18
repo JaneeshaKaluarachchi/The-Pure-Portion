@@ -19,6 +19,10 @@ const ingredientSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  baseUnit: {
+    type: String,
+    required: true // Store the inventory's base unit
+  },
   costPerUnit: {
     type: Number,
     default: 0
@@ -42,7 +46,7 @@ const recipeSchema = new mongoose.Schema({
   restaurantId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: false
+    required: true
   },
   recipeId: {
     type: String,
@@ -60,6 +64,10 @@ const recipeSchema = new mongoose.Schema({
     type: String,
     required: true,
     enum: ['curry', 'rice', 'bread', 'soup', 'salad', 'dessert', 'beverage', 'appetizer', 'main-course', 'side-dish', 'breakfast', 'snack', 'other']
+  },
+  subcategory: {
+    type: String,
+    default: ''
   },
   cuisine: {
     type: String,
@@ -172,11 +180,63 @@ recipeSchema.pre('validate', async function(next) {
   next();
 });
 
+// Helper function for unit conversion
+const convertUnits = (quantity, fromUnit, toUnit) => {
+  if (fromUnit === toUnit) return quantity;
+  
+  // Conversion rates to base units (kg for weight, l for volume)
+  const weightConversions = {
+    'g': 0.001,    // g to kg
+    'kg': 1,       // kg to kg
+    'lb': 0.453592, // lb to kg
+    'oz': 0.0283495 // oz to kg
+  };
+  
+  const volumeConversions = {
+    'ml': 0.001,   // ml to l
+    'l': 1,        // l to l
+    'cup': 0.236588, // cup to l
+    'tbsp': 0.0147868, // tbsp to l
+    'tsp': 0.00492892  // tsp to l
+  };
+  
+  const countConversions = {
+    'pieces': 1,
+    'pcs': 1,
+    'dozen': 12,
+    'packs': 1,
+    'bottles': 1,
+    'cans': 1,
+    'boxes': 1
+  };
+  
+  // Determine conversion type
+  let conversions = null;
+  if (weightConversions[fromUnit] && weightConversions[toUnit]) {
+    conversions = weightConversions;
+  } else if (volumeConversions[fromUnit] && volumeConversions[toUnit]) {
+    conversions = volumeConversions;
+  } else if (countConversions[fromUnit] && countConversions[toUnit]) {
+    conversions = countConversions;
+  }
+  
+  if (!conversions) {
+    console.warn(`Cannot convert from ${fromUnit} to ${toUnit}`);
+    return quantity; // Return original if conversion not possible
+  }
+  
+  // Convert: fromUnit -> base -> toUnit
+  const baseQuantity = quantity * conversions[fromUnit];
+  return baseQuantity / conversions[toUnit];
+};
+
 // Calculate costs before saving
 recipeSchema.pre('save', function(next) {
-  // Calculate total cost and cost per serving
+  // Calculate total cost with proper unit conversion
   this.totalCost = this.ingredients.reduce((total, ingredient) => {
-    ingredient.totalCost = ingredient.quantity * ingredient.costPerUnit;
+    // Convert ingredient quantity to base unit for cost calculation
+    const baseQuantity = convertUnits(ingredient.quantity, ingredient.unit, ingredient.baseUnit);
+    ingredient.totalCost = baseQuantity * ingredient.costPerUnit;
     return total + ingredient.totalCost;
   }, 0);
   

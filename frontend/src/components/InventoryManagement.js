@@ -58,6 +58,17 @@ const [stockModal, setStockModal] = useState({
     "storage-room",
     "dry-storage",
   ];
+const costUnitLabels = {
+  kg: "per 1 kg",
+  g: "per 100 g",
+  l: "per 1 l",
+  ml: "per 100 ml",
+  pieces: "per piece",
+  packs: "per pack",
+  bottles: "per bottle",
+  cans: "per can",
+  boxes: "per box",
+};
 
   const [formData, setFormData] = useState({
     name: "",
@@ -68,6 +79,7 @@ const [stockModal, setStockModal] = useState({
     minQuantity: "",
     maxQuantity: "",
     costPerUnit: "",
+    costUnit: "kg",
     location: "storage-room",
     expiryDate: "",
     purchaseDate: "",
@@ -279,14 +291,10 @@ const [stockModal, setStockModal] = useState({
   const normalizeQuantity = (quantity, unit) => {
     const q = Number(quantity) || 0;
     switch (unit) {
-      case "g":
-        return q / 1000;
-      case "kg":
-        return q;
-      case "ml":
-        return q / 1000;
-      case "l":
-        return q;
+      case "kg": return q * 1000;  // convert kg → g
+    case "g": return q;          // already in g
+    case "l": return q * 1000;   // convert l → ml
+    case "ml": return q; 
       case "pieces":
       case "packs":
       case "bottles":
@@ -321,10 +329,25 @@ const [stockModal, setStockModal] = useState({
     }
   };
 
-  const calculateItemValue = (item) => {
-    const normalizedQty = normalizeQuantity(item.currentQuantity, item.unit);
-    return normalizedQty * item.costPerUnit;
-  };
+  const normalizeCost = (value, unit) => {
+  switch (unit) {
+    case "kg": return value / 1000;  // cost per g
+    case "g": return value / 100;    // cost per g (if given per 100g)
+    case "l": return value / 1000;   // cost per ml
+    case "ml": return value / 100;   // cost per ml (if given per 100ml)
+    default: return value;           // per piece, per pack, etc.
+  }
+};
+
+
+const calculateItemValue = (item) => {
+  const normalizedQty = normalizeQuantity(item.currentQuantity, item.unit);   // in base unit
+  const costBase = normalizeCost(item.costPerUnit, item.costUnit);            // cost per base unit
+  return normalizedQty * costBase;
+};
+
+
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-LK", {
       style: "currency",
@@ -383,38 +406,6 @@ const [stockModal, setStockModal] = useState({
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="inventory-filters">
-        <select
-          value={filters.category}
-          onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-        >
-          <option value="all">All Categories</option>
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat.charAt(0).toUpperCase() + cat.slice(1)}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={filters.status}
-          onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-        >
-          <option value="all">All Status</option>
-          <option value="in-stock">In Stock</option>
-          <option value="low-stock">Low Stock</option>
-          <option value="out-of-stock">Out of Stock</option>
-          <option value="expired">Expired</option>
-        </select>
-
-        <input
-          type="text"
-          placeholder="Search items..."
-          value={filters.search}
-          onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-        />
-      </div>
 
       {/* Add/Edit Form */}
       {showAddForm && (
@@ -525,19 +516,36 @@ const [stockModal, setStockModal] = useState({
                     step="0.01"
                   />
                 </div>
-                <div className="form-group">
-                  <label>Cost per Unit *</label>
-                  <input
-                    type="number"
-                    value={formData.costPerUnit}
-                    onChange={(e) =>
-                      setFormData({ ...formData, costPerUnit: e.target.value })
-                    }
-                    required
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
+               <div className="form-group">
+  <label>
+    Cost {costUnitLabels[formData.costUnit] || ""}
+  </label>
+  <input
+    type="number"
+    value={formData.costPerUnit}
+    onChange={(e) =>
+      setFormData({ ...formData, costPerUnit: e.target.value })
+    }
+    required
+    min="0"
+    step="0.01"
+  />
+  <select
+    value={formData.costUnit}
+    onChange={(e) =>
+      setFormData({ ...formData, costUnit: e.target.value })
+    }
+    required
+  >
+    {units.map((unit) => (
+      <option key={unit} value={unit}>
+        {unit}
+      </option>
+    ))}
+  </select>
+</div>
+
+
               </div>
 
               <div className="form-row">
@@ -604,6 +612,72 @@ const [stockModal, setStockModal] = useState({
           </div>
         </div>
       )}
+      {/* Alerts Section */}
+      {(stats.lowStockItems?.length > 0 || stats.expiringItems?.length > 0) && (
+        <div className="alerts-section">
+          {stats.lowStockItems?.length > 0 && (
+            <div className="alert-panel low-stock-alert">
+              <h3>⚠️ Low Stock Items</h3>
+              <ul>
+                {stats.lowStockItems.map((item) => (
+                  <li key={item._id}>
+                    <strong>{item.name}</strong> ({item.itemId}) - Current:{" "}
+                    {item.currentQuantity}, Min: {item.minQuantity}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {stats.expiringItems?.length > 0 && (
+            <div className="alert-panel expiring-alert">
+              <h3>⏰ Items Expiring Soon</h3>
+              <ul>
+                {stats.expiringItems.map((item) => (
+                  <li key={item._id}>
+                    <strong>{item.name}</strong> ({item.itemId}) - Expires:{" "}
+                    {new Date(item.expiryDate).toLocaleDateString()}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="inventory-filters">
+        <h1>Inventory Table</h1>
+        <select
+          value={filters.category}
+          onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+        >
+          <option value="all">All Categories</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat.charAt(0).toUpperCase() + cat.slice(1)}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={filters.status}
+          onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+        >
+          <option value="all">All Status</option>
+          <option value="in-stock">In Stock</option>
+          <option value="low-stock">Low Stock</option>
+          <option value="out-of-stock">Out of Stock</option>
+          <option value="expired">Expired</option>
+        </select>
+
+        <input
+          type="text"
+          placeholder="Search items..."
+          value={filters.search}
+          onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+        />
+      </div>
 
       {/* Inventory Items Table */}
       <div className="inventory-table">
@@ -706,38 +780,7 @@ const [stockModal, setStockModal] = useState({
         )}
       </div>
 
-      {/* Alerts Section */}
-      {(stats.lowStockItems?.length > 0 || stats.expiringItems?.length > 0) && (
-        <div className="alerts-section">
-          {stats.lowStockItems?.length > 0 && (
-            <div className="alert-panel low-stock-alert">
-              <h3>⚠️ Low Stock Items</h3>
-              <ul>
-                {stats.lowStockItems.map((item) => (
-                  <li key={item._id}>
-                    <strong>{item.name}</strong> ({item.itemId}) - Current:{" "}
-                    {item.currentQuantity}, Min: {item.minQuantity}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {stats.expiringItems?.length > 0 && (
-            <div className="alert-panel expiring-alert">
-              <h3>⏰ Items Expiring Soon</h3>
-              <ul>
-                {stats.expiringItems.map((item) => (
-                  <li key={item._id}>
-                    <strong>{item.name}</strong> ({item.itemId}) - Expires:{" "}
-                    {new Date(item.expiryDate).toLocaleDateString()}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
+      
     </div>
   );
 };

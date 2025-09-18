@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const authMiddleware = require('../middleware/authMiddleware');
 const {
   getDailyProfit,
   getMonthlyProfit,
@@ -12,29 +11,52 @@ const {
   getStaffLoans,
   processLoanPayment,
   getFinanceSummary,
-  getFinanceRecords
+  getFinanceRecords,
+  getStaffPerformanceData,
+  generateFinanceReport
 } = require('../controllers/financeController');
+const auth = require('../middleware/auth');
+const FinanceRecord = require('../models/FinanceRecord'); // import model once at the top
 
-// Apply authentication middleware to all routes
-router.use(authMiddleware);
+// Finance summary and reports
+router.get('/summary', auth, getFinanceSummary);
+router.get('/daily-profit', auth, getDailyProfit);
+router.get('/monthly-profit', auth, getMonthlyProfit);
+router.get('/inventory-costs', auth, getInventoryCosts);
+router.get('/records', auth, getFinanceRecords);
+router.get('/report/pdf', auth, generateFinanceReport);
 
-// Finance summary and analytics
-router.get('/summary', getFinanceSummary);
-router.get('/daily-profit', getDailyProfit);
-router.get('/monthly-profit', getMonthlyProfit);
-router.get('/inventory-costs', getInventoryCosts);
+// Delete a finance record
+router.delete('/records/:id', auth, async (req, res) => {
+  const { id } = req.params;
 
-// Finance records management
-router.get('/records', getFinanceRecords);
-router.post('/records', addFinanceRecord);
+  try {
+    const record = await FinanceRecord.findById(id);
+    if (!record) {
+      return res.status(404).json({ success: false, message: "Record not found" });
+    }
 
-// Staff payments and payroll
-router.post('/staff-payment', processStaffPayment);
-router.post('/bonus', giveBonus);
+    await record.deleteOne(); // safer than remove()
+    res.json({ success: true, message: "Record deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting record:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 
-// Staff loans management
-router.get('/loans', getStaffLoans);
-router.post('/loans', createStaffLoan);
-router.post('/loans/:loanId/payment', processLoanPayment);
+// Staff performance data for bonus calculation
+router.get('/staff-performance', auth, getStaffPerformanceData);
+
+// Finance records
+router.post('/records', auth, addFinanceRecord);
+
+// Staff payments and bonuses
+router.post('/staff-payment', auth, processStaffPayment);
+router.post('/bonus', auth, giveBonus);
+
+// Loans
+router.post('/loans', auth, createStaffLoan);
+router.get('/loans', auth, getStaffLoans);
+router.post('/loans/:loanId/payment', auth, processLoanPayment);
 
 module.exports = router;

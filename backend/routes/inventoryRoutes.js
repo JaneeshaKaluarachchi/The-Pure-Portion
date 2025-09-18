@@ -152,7 +152,7 @@ let y = doc.y;
     // Footer with page numbers & total value
     const range = doc.bufferedPageRange();
     for (let i = 0; i < range.count; i++) {
-      doc.switchToPage(i);
+      doc.switchToPage(1);
       doc.fontSize(8).fillColor('grey')
         .text(`Page ${i + 1} of ${range.count}  |  Total Inventory Value: LKR ${totalValue.toFixed(2)}`, 50, doc.page.height - 20, { align: 'center' });
     }

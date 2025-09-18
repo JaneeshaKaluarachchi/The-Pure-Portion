@@ -14,6 +14,7 @@ const addInventoryItem = async (req, res) => {
       minQuantity: Number(req.body.minQuantity),
       maxQuantity: req.body.maxQuantity ? Number(req.body.maxQuantity) : null,
       costPerUnit: Number(req.body.costPerUnit),
+       costUnit: req.body.costUnit || "kg",
       expiryDate: req.body.expiryDate ? new Date(req.body.expiryDate) : null,
       purchaseDate: req.body.purchaseDate ? new Date(req.body.purchaseDate) : new Date()
     };
@@ -96,6 +97,7 @@ const updateInventoryItem = async (req, res) => {
       minQuantity: Number(req.body.minQuantity),
       maxQuantity: req.body.maxQuantity ? Number(req.body.maxQuantity) : null,
       costPerUnit: Number(req.body.costPerUnit),
+      costUnit: req.body.costUnit || "kg",
       expiryDate: req.body.expiryDate ? new Date(req.body.expiryDate) : null,
       updatedAt: Date.now()
     };

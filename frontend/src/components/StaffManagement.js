@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import AttendanceManagement from './AttendanceManagement';
 import '../styles/StaffManagement.css';
 
 const StaffManagement = () => {
@@ -9,6 +10,7 @@ const StaffManagement = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
   const [stats, setStats] = useState({});
+  const [showAttendance, setShowAttendance] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -200,16 +202,48 @@ const StaffManagement = () => {
     setShowAddForm(false);
   };
 
+  // If showing attendance management, render that component
+  if (showAttendance) {
+    return (
+      <div>
+        <div style={{ marginBottom: '20px' }}>
+          <button 
+            onClick={() => setShowAttendance(false)}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            ← Back to Staff Management
+          </button>
+        </div>
+        <AttendanceManagement />
+      </div>
+    );
+  }
+
   return (
     <div className="staff-management">
       <div className="staff-header">
         <h2>Staff Management</h2>
-        <button 
-          className="add-staff-btn"
-          onClick={() => setShowAddForm(!showAddForm)}
-        >
-          {showAddForm ? '❌ Cancel' : '➕ Add Staff'}
-        </button>
+        <div className="header-buttons">
+          <button 
+            className="attendance-manage-btn"
+            onClick={() => setShowAttendance(true)}
+          >
+            📋 Attendance Manage
+          </button>
+          <button 
+            className="add-staff-btn"
+            onClick={() => setShowAddForm(!showAddForm)}
+          >
+            {showAddForm ? '❌ Cancel' : '➕ Add Staff'}
+          </button>
+        </div>
       </div>
 
       {message && (
