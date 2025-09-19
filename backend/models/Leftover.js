@@ -4,7 +4,6 @@ const leftoverSchema = new mongoose.Schema({
   leftoverId: {
     type: String,
     unique: true
-    // No required, pre-save hook generates it
   },
   name: {
     type: String,
@@ -38,24 +37,6 @@ const leftoverSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
-
-  // ✅ Fixed location schema (GeoJSON + address)
-  location: {
-    address: { type: String, required: true },
-    geo: {
-      type: {
-        type: String,
-        enum: ['Point'],
-        required: true,
-        default: 'Point'
-      },
-      coordinates: {
-        type: [Number], // [lng, lat]
-        required: true
-      }
-    }
-  },
-
   donorId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -85,7 +66,7 @@ const leftoverSchema = new mongoose.Schema({
   },
   approvedBy: {
     adminId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.Mixed,
       ref: 'User'
     },
     adminName: String,
@@ -169,7 +150,6 @@ leftoverSchema.pre('save', async function(next) {
 leftoverSchema.index({ status: 1, expiryDate: 1 });
 leftoverSchema.index({ donorId: 1 });
 leftoverSchema.index({ category: 1 });
-leftoverSchema.index({ "location.geo": "2dsphere" }); // ✅ fixed
 leftoverSchema.index({ requestType: 1 });
 
 module.exports = mongoose.model('Leftover', leftoverSchema);

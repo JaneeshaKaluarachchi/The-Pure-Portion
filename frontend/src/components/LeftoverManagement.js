@@ -1,36 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { GoogleMap, useLoadScript, Marker } from "@react-google-maps/api";
 import '../styles/LeftoverManagement.css';
-
-const mapContainerStyle = {
-  width: "100%",
-  height: "300px",
-  borderRadius: "10px"
-};
-const defaultCenter = { lat: 6.9271, lng: 79.8612 }; // Colombo fallback
 
 const LeftoverManagement = () => {
   const [activeTab, setActiveTab] = useState('browse');
   const [leftovers, setLeftovers] = useState([]);
   const [myLeftovers, setMyLeftovers] = useState([]);
+  const [donationRequests, setDonationRequests] = useState([]);
   const [pendingLeftovers, setPendingLeftovers] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [userType, setUserType] = useState('');
   const [showDonateModal, setShowDonateModal] = useState(false);
-  const [showChatModal, setShowChatModal] = useState(false);
+  const [showRequestModal, setShowRequestModal] = useState(false);
   const [filters, setFilters] = useState({
     category: '',
     location: '',
     radius: 10
   });
-
-  // Chat state
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput] = useState('');
-  const [chatSessionId, setChatSessionId] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
 
   // Donation form state
   const [donationForm, setDonationForm] = useState({
@@ -41,7 +29,6 @@ const LeftoverManagement = () => {
     category: 'cooked-meal',
     expiryDate: '',
     address: '',
-    coordinates: { lat: '', lng: '' },
     notes: '',
     allergens: [],
     dietaryTags: [],
@@ -53,12 +40,29 @@ const LeftoverManagement = () => {
     }
   });
 
-  // Load Google Maps
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY
+  // Donation request form state
+  const [requestForm, setRequestForm] = useState({
+    requesterName: '',
+    targetOrganization: '',
+    organizationType: 'charity',
+    purpose: '',
+    location: {
+      address: '',
+    },
+    requestedItems: [{ itemName: '', quantity: '', unit: 'kg', priority: 'medium' }],
+    urgencyLevel: 'medium',
+    neededBy: '',
+    description: '',
+    contactInfo: {
+      phone: '',
+      email: '',
+      preferredContact: 'both'
+    },
+    notes: '',
+    proofDocuments: []
   });
 
-  // Fetch leftovers with useCallback to satisfy useEffect dependencies
+  // Fetch functions
   const fetchLeftovers = useCallback(async () => {
     try {
       setLoading(true);
@@ -66,7 +70,6 @@ const LeftoverManagement = () => {
       const params = new URLSearchParams({ status: 'approved', page: 1, limit: 20 });
       if (filters.category) params.append('category', filters.category);
       if (filters.location) params.append('location', filters.location);
-      if (filters.radius) params.append('radius', filters.radius);
 
       const response = await axios.get(`http://localhost:5000/api/leftovers?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -80,6 +83,42 @@ const LeftoverManagement = () => {
       setLoading(false);
     }
   }, [filters]);
+
+const handleHelpRequest = async (requestId) => {
+  try {
+    const token = localStorage.getItem('token');
+    await axios.post(
+      `http://localhost:5000/api/leftovers/requests/${requestId}/fulfill`, // <-- fixed route
+      {},
+      {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    );
+    alert('You have successfully offered help for this request!');
+    fetchDonationRequests(); // Refresh progress bar or donation requests list
+  } catch (error) {
+    console.error('Error helping with request:', error);
+    alert('Failed to help with request: ' + (error.response?.data?.message || error.message));
+  }
+};
+
+
+  const fetchDonationRequests = useCallback(async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5000/api/leftovers/requests', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setDonationRequests(response.data.requests || []);
+    } catch (error) {
+      console.error('Error fetching donation requests:', error);
+      setError('Failed to fetch donation requests');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const fetchMyLeftovers = useCallback(async () => {
     try {
@@ -115,16 +154,35 @@ const LeftoverManagement = () => {
     }
   }, []);
 
+  const fetchPendingRequests = useCallback(async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5000/api/leftovers/admin/pending-requests', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setPendingRequests(response.data.requests || []);
+    } catch (error) {
+      console.error('Error fetching pending requests:', error);
+      setError('Failed to fetch pending requests');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    const storedUserType = localStorage.getItem('userType') || 'restaurant';
+    const storedUserType = localStorage.getItem('userType') || localStorage.getItem('role') || 'household';
     setUserType(storedUserType);
 
-    setChatSessionId(`chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-
-    fetchLeftovers();
+    if (activeTab === 'browse') fetchLeftovers();
+    if (activeTab === 'requests') fetchDonationRequests();
     if (activeTab === 'my-donations') fetchMyLeftovers();
-    if (activeTab === 'admin' && storedUserType === 'admin') fetchPendingLeftovers();
-  }, [activeTab, fetchLeftovers, fetchMyLeftovers, fetchPendingLeftovers]);
+    if (activeTab === 'admin' && storedUserType === 'admin') {
+      fetchPendingLeftovers();
+      fetchPendingRequests();
+    }
+  }, [activeTab, fetchLeftovers, fetchDonationRequests, fetchMyLeftovers, fetchPendingLeftovers, fetchPendingRequests]);
 
   const handleClaimLeftover = async (leftoverId) => {
     try {
@@ -147,25 +205,17 @@ const LeftoverManagement = () => {
       const token = localStorage.getItem('token');
       const formData = new FormData();
 
-     Object.keys(donationForm).forEach(key => {
-  if (key === 'coordinates') {
-    formData.append('location', JSON.stringify({
-      address: donationForm.address,
-      type: "Point",
-      coordinates: [
-        parseFloat(donationForm.coordinates.lng),
-        parseFloat(donationForm.coordinates.lat)
-      ]
-    }));
-  } else if (key === 'allergens' || key === 'dietaryTags') {
-    formData.append(key, JSON.stringify(donationForm[key]));
-  } else if (key === 'contactInfo') {
-    formData.append(key, JSON.stringify(donationForm[key]));
-  } else if (key !== 'address') {
-    formData.append(key, donationForm[key]);
-  }
-});
-
+      Object.keys(donationForm).forEach(key => {
+        if (key === 'coordinates') {
+          // Skip coordinates, will be handled with address
+        } else if (key === 'allergens' || key === 'dietaryTags') {
+          formData.append(key, JSON.stringify(donationForm[key]));
+        } else if (key === 'contactInfo') {
+          formData.append(key, JSON.stringify(donationForm[key]));
+        } else {
+          formData.append(key, donationForm[key]);
+        }
+      });
 
       await axios.post('http://localhost:5000/api/leftovers', formData, {
         headers: { 
@@ -174,13 +224,50 @@ const LeftoverManagement = () => {
         }
       });
 
-      alert('Donation submitted successfully! It will be reviewed by our team.');
+      alert('Donation submitted successfully! It will be reviewed by our admin team.');
       setShowDonateModal(false);
       resetDonationForm();
       if (activeTab === 'my-donations') fetchMyLeftovers();
     } catch (error) {
       console.error('Error submitting donation:', error);
       alert('Failed to submit donation: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handleRequestSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+
+      // Add form fields
+      Object.keys(requestForm).forEach(key => {
+        if (key === 'proofDocuments') {
+          // Handle file uploads
+          requestForm.proofDocuments.forEach(file => {
+            formData.append('proofDocuments', file);
+          });
+        } else if (typeof requestForm[key] === 'object') {
+          formData.append(key, JSON.stringify(requestForm[key]));
+        } else {
+          formData.append(key, requestForm[key]);
+        }
+      });
+
+      await axios.post('http://localhost:5000/api/leftovers/request', formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      alert('Donation request submitted successfully! It will be reviewed by our admin team.');
+      setShowRequestModal(false);
+      resetRequestForm();
+      if (activeTab === 'requests') fetchDonationRequests();
+    } catch (error) {
+      console.error('Error submitting request:', error);
+      alert('Failed to submit request: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -193,7 +280,6 @@ const LeftoverManagement = () => {
       category: 'cooked-meal',
       expiryDate: '',
       address: '',
-      coordinates: { lat: '', lng: '' },
       notes: '',
       allergens: [],
       dietaryTags: [],
@@ -206,64 +292,71 @@ const LeftoverManagement = () => {
     });
   };
 
-  const handleApproveReject = async (leftoverId, action, reason = '') => {
+  const resetRequestForm = () => {
+    setRequestForm({
+      requesterName: '',
+      targetOrganization: '',
+      organizationType: 'charity',
+      purpose: '',
+      location: {
+        address: '',
+      },
+      requestedItems: [{ itemName: '', quantity: '', unit: 'kg', priority: 'medium' }],
+      urgencyLevel: 'medium',
+      neededBy: '',
+      description: '',
+      contactInfo: {
+        phone: '',
+        email: '',
+        preferredContact: 'both'
+      },
+      notes: '',
+      proofDocuments: []
+    });
+  };
+
+  const handleApproveReject = async (id, action, reason = '', type = 'leftover') => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`http://localhost:5000/api/leftovers/admin/${leftoverId}/approve`, {
+      const endpoint = type === 'leftover' 
+        ? `http://localhost:5000/api/leftovers/admin/${id}/approve`
+        : `http://localhost:5000/api/leftovers/admin/requests/${id}/approve`;
+        
+      await axios.post(endpoint, {
         action,
         reason
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      alert(`Leftover ${action}d successfully!`);
-      fetchPendingLeftovers();
+      alert(`${type === 'leftover' ? 'Leftover' : 'Request'} ${action}d successfully!`);
+      if (type === 'leftover') {
+        fetchPendingLeftovers();
+      } else {
+        fetchPendingRequests();
+      }
     } catch (error) {
-      console.error('Error updating leftover:', error);
-      alert('Failed to update leftover: ' + (error.response?.data?.message || error.message));
+      console.error(`Error updating ${type}:`, error);
+      alert(`Failed to update ${type}: ` + (error.response?.data?.message || error.message));
     }
   };
 
-  const handleChatSubmit = async (e) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
+  const addRequestItem = () => {
+    setRequestForm({
+      ...requestForm,
+      requestedItems: [...requestForm.requestedItems, { itemName: '', quantity: '', unit: 'kg', priority: 'medium' }]
+    });
+  };
 
-    const userMessage = chatInput.trim();
-    setChatInput('');
-    setChatLoading(true);
+  const removeRequestItem = (index) => {
+    const items = requestForm.requestedItems.filter((_, i) => i !== index);
+    setRequestForm({ ...requestForm, requestedItems: items });
+  };
 
-    setChatMessages(prev => [...prev, { message: userMessage, sender: 'user', createdAt: new Date() }]);
-
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post('http://localhost:5000/api/leftovers/chat', {
-        message: userMessage,
-        sessionId: chatSessionId,
-        leftovers: myLeftovers.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          unit: item.unit
-        }))
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      setChatMessages(prev => [...prev, {
-        message: response.data.response.message,
-        sender: 'ai',
-        messageType: response.data.response.type,
-        createdAt: new Date()
-      }]);
-    } catch (error) {
-      console.error('Error in chat:', error);
-      setChatMessages(prev => [...prev, {
-        message: 'Sorry, I encountered an error. Please try again.',
-        sender: 'ai',
-        createdAt: new Date()
-      }]);
-    } finally {
-      setChatLoading(false);
-    }
+  const updateRequestItem = (index, field, value) => {
+    const items = [...requestForm.requestedItems];
+    items[index][field] = value;
+    setRequestForm({ ...requestForm, requestedItems: items });
   };
 
   const formatDate = (dateString) => new Date(dateString).toLocaleDateString('en-US', {
@@ -281,23 +374,33 @@ const LeftoverManagement = () => {
       case 'claimed': return '#3498db';
       case 'expired': return '#e74c3c';
       case 'rejected': return '#95a5a6';
+      case 'fulfilled': return '#8e44ad';
       default: return '#7f8c8d';
     }
   };
 
-  if (!isLoaded) return <div>Loading Map...</div>;
-  if (loading) return <div className="loading">Loading leftovers...</div>;
+  const getUrgencyColor = (urgency) => {
+    switch (urgency) {
+      case 'critical': return '#e74c3c';
+      case 'high': return '#e67e22';
+      case 'medium': return '#f39c12';
+      case 'low': return '#27ae60';
+      default: return '#7f8c8d';
+    }
+  };
+
+  if (loading) return <div className="loading">Loading...</div>;
 
   return (
     <div className="leftover-management">
       <div className="leftover-header">
-        <h2>♻️ Leftover Management</h2>
+        <h2>♻️ Leftover Management System</h2>
         <div className="header-actions">
           <button 
-            className="chat-btn"
-            onClick={() => setShowChatModal(true)}
+            className="request-btn"
+            onClick={() => setShowRequestModal(true)}
           >
-            🤖 AI Recipe Assistant
+            🙏 Request Donation
           </button>
           <button 
             className="donate-btn"
@@ -316,6 +419,12 @@ const LeftoverManagement = () => {
           onClick={() => setActiveTab('browse')}
         >
           🔍 Browse Donations
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
+          onClick={() => setActiveTab('requests')}
+        >
+          🙏 Donation Requests
         </button>
         <button 
           className={`tab-btn ${activeTab === 'my-donations' ? 'active' : ''}`}
@@ -353,13 +462,12 @@ const LeftoverManagement = () => {
               </select>
             </div>
             <div className="filter-group">
-              <label>Radius (km):</label>
+              <label>Location:</label>
               <input 
-                type="number" 
-                value={filters.radius}
-                onChange={(e) => setFilters({...filters, radius: e.target.value})}
-                min="1" 
-                max="50"
+                type="text" 
+                placeholder="Enter city or area"
+                value={filters.location}
+                onChange={(e) => setFilters({...filters, location: e.target.value})}
               />
             </div>
             <button className="filter-apply-btn" onClick={fetchLeftovers}>
@@ -386,15 +494,18 @@ const LeftoverManagement = () => {
                       ({getDaysUntilExpiry(leftover.expiryDate)} days)
                     </span>
                   </div>
+                  <div className="location-info">
+  <span>📍 {leftover.address || 'Location not specified'}</span>
+</div>
                   <div className="donor-info">
                     <span>Donated by: {leftover.donorName}</span>
                     <span className="donor-type">{leftover.donorType}</span>
                   </div>
                   <div className="leftover-tags">
-                    {leftover.dietaryTags.map(tag => (
+                    {leftover.dietaryTags?.map(tag => (
                       <span key={tag} className="tag dietary">{tag}</span>
                     ))}
-                    {leftover.allergens.map(allergen => (
+                    {leftover.allergens?.map(allergen => (
                       <span key={allergen} className="tag allergen">Contains {allergen}</span>
                     ))}
                   </div>
@@ -407,6 +518,67 @@ const LeftoverManagement = () => {
                     </button>
                   </div>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Donation Requests Tab */}
+      {activeTab === 'requests' && (
+        <div className="requests-section">
+          <div className="requests-grid">
+            {donationRequests.map(request => (
+              <div key={request._id} className="request-card">
+                <div className="request-header">
+                  <h3>{request.targetOrganization}</h3>
+                  <div className="request-badges">
+                    <span 
+                      className="urgency-badge"
+                      style={{ backgroundColor: getUrgencyColor(request.urgencyLevel) }}
+                    >
+                      {request.urgencyLevel}
+                    </span>
+                    <span className="org-type-badge">{request.organizationType}</span>
+                  </div>
+                </div>
+                <p className="purpose">{request.purpose}</p>
+                <p className="description">{request.description}</p>
+                
+                <div className="requested-items">
+                  <h4>Requested Items:</h4>
+                  {request.requestedItems.map((item, index) => (
+                    <div key={index} className="requested-item">
+                      <span>{item.itemName}: {item.quantity} {item.unit}</span>
+                      <span className={`priority ${item.priority}`}>{item.priority}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="request-meta">
+                  <span>📍 {request.location?.address}</span>
+                  <span>📅 Needed by: {formatDate(request.neededBy)}</span>
+                  <span>👤 Requested by: {request.requesterName}</span>
+                </div>
+
+                <div className="fulfillment-progress">
+                  <div className="progress-bar">
+                    <div 
+                      className="progress-fill"
+                      style={{ width: `${request.totalFulfillment || 0}%` }}
+                    ></div>
+                  </div>
+                  <span>{request.totalFulfillment || 0}% fulfilled</span>
+                </div>
+
+                <div className="request-actions">
+  <button 
+    className="fulfill-btn"
+    onClick={() => handleHelpRequest(request._id)}
+  >
+    🤝 Help with this Request
+  </button>
+</div>
               </div>
             ))}
           </div>
@@ -454,39 +626,88 @@ const LeftoverManagement = () => {
       {/* Admin Panel Tab */}
       {activeTab === 'admin' && userType === 'admin' && (
         <div className="admin-section">
-          <h3>Pending Donations</h3>
-          <div className="pending-leftovers">
-            {pendingLeftovers.map(leftover => (
-              <div key={leftover._id} className="pending-leftover-card">
-                <div className="leftover-info">
-                  <h4>{leftover.name}</h4>
-                  <p>{leftover.description}</p>
-                  <div className="donor-details">
-                    <span>Donor: {leftover.donorName} ({leftover.donorType})</span>
-                    <span>Quantity: {leftover.quantity} {leftover.unit}</span>
-                    <span>Category: {leftover.category}</span>
-                    <span>Expires: {formatDate(leftover.expiryDate)}</span>
+          <div className="admin-tabs">
+            <h3>Pending Donations</h3>
+            <div className="pending-leftovers">
+              {pendingLeftovers.map(leftover => (
+                <div key={leftover._id} className="pending-leftover-card">
+                  <div className="leftover-info">
+                    <h4>{leftover.name}</h4>
+                    <p>{leftover.description}</p>
+                    <div className="donor-details">
+                      <span>Donor: {leftover.donorName} ({leftover.donorType})</span>
+                      <span>Quantity: {leftover.quantity} {leftover.unit}</span>
+                      <span>Category: {leftover.category}</span>
+                      <span>Expires: {formatDate(leftover.expiryDate)}</span>
+                      <span>📍 {leftover.location?.address}</span>
+                    </div>
+                  </div>
+                  <div className="admin-actions">
+                    <button 
+                      className="approve-btn"
+                      onClick={() => handleApproveReject(leftover._id, 'approve', '', 'leftover')}
+                    >
+                      ✅ Approve
+                    </button>
+                    <button 
+                      className="reject-btn"
+                      onClick={() => {
+                        const reason = prompt('Reason for rejection:');
+                        if (reason) handleApproveReject(leftover._id, 'reject', reason, 'leftover');
+                      }}
+                    >
+                      ❌ Reject
+                    </button>
                   </div>
                 </div>
-                <div className="admin-actions">
-                  <button 
-                    className="approve-btn"
-                    onClick={() => handleApproveReject(leftover._id, 'approve')}
-                  >
-                    ✅ Approve
-                  </button>
-                  <button 
-                    className="reject-btn"
-                    onClick={() => {
-                      const reason = prompt('Reason for rejection:');
-                      if (reason) handleApproveReject(leftover._id, 'reject', reason);
-                    }}
-                  >
-                    ❌ Reject
-                  </button>
+              ))}
+            </div>
+
+            <h3>Pending Donation Requests</h3>
+            <div className="pending-requests">
+              {pendingRequests.map(request => (
+                <div key={request._id} className="pending-request-card">
+                  <div className="request-info">
+                    <h4>{request.targetOrganization}</h4>
+                    <p><strong>Purpose:</strong> {request.purpose}</p>
+                    <p>{request.description}</p>
+                    <div className="request-details">
+                      <span>Requester: {request.requesterName}</span>
+                      <span>Type: {request.organizationType}</span>
+                      <span>Urgency: {request.urgencyLevel}</span>
+                      <span>Needed by: {formatDate(request.neededBy)}</span>
+                      <span>📍 {request.location?.address}</span>
+                      {request.isOfficialRequest && (
+                        <span className="official-badge">🏛️ Official Request - Requires Verification</span>
+                      )}
+                    </div>
+                    <div className="requested-items-admin">
+                      <strong>Requested Items:</strong>
+                      {request.requestedItems.map((item, index) => (
+                        <span key={index}>{item.itemName} ({item.quantity} {item.unit})</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="admin-actions">
+                    <button 
+                      className="approve-btn"
+                      onClick={() => handleApproveReject(request._id, 'approve', '', 'request')}
+                    >
+                      ✅ Approve
+                    </button>
+                    <button 
+                      className="reject-btn"
+                      onClick={() => {
+                        const reason = prompt('Reason for rejection:');
+                        if (reason) handleApproveReject(request._id, 'reject', reason, 'request');
+                      }}
+                    >
+                      ❌ Reject
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -568,50 +789,23 @@ const LeftoverManagement = () => {
                   required
                 />
               </div>
-
-              {/* Address + Map */}
               <div className="form-group">
                 <label>Pickup Address *</label>
-                <input 
-                  type="text"
+                <textarea 
                   value={donationForm.address}
                   onChange={(e) => setDonationForm({...donationForm, address: e.target.value})}
-                  placeholder="Street address, city, zip code"
+                  placeholder="Full address including city, postal code"
                   required
                 />
               </div>
-
               <div className="form-group">
-  <label>Pick Location on Map *</label>
-  <GoogleMap
-    mapContainerStyle={{ width: '100%', height: '300px' }}
-    center={{
-      lat: donationForm.coordinates.lat || 6.9271,  // default Colombo
-      lng: donationForm.coordinates.lng || 79.8612
-    }}
-    zoom={12}
-    onClick={(e) => {
-      setDonationForm({
-        ...donationForm,
-        coordinates: {
-          lat: e.latLng.lat(),
-          lng: e.latLng.lng()
-        }
-      });
-    }}
-  >
-    {donationForm.coordinates.lat && (
-      <Marker
-        position={{
-          lat: donationForm.coordinates.lat,
-          lng: donationForm.coordinates.lng
-        }}
-      />
-    )}
-  </GoogleMap>
-</div>
-
-
+                <label>Pickup Instructions</label>
+                <textarea 
+                  value={donationForm.pickupInstructions}
+                  onChange={(e) => setDonationForm({...donationForm, pickupInstructions: e.target.value})}
+                  placeholder="Special instructions for pickup"
+                />
+              </div>
               <div className="form-actions">
                 <button type="submit" className="submit-btn">Submit Donation</button>
               </div>
@@ -620,40 +814,207 @@ const LeftoverManagement = () => {
         </div>
       )}
 
-      {/* Chat Modal */}
-      {showChatModal && (
+      {/* Request Modal */}
+      {showRequestModal && (
         <div className="modal-overlay">
-          <div className="modal chat-modal">
+          <div className="modal request-modal">
             <div className="modal-header">
-              <h3>🤖 AI Recipe Assistant</h3>
-              <button onClick={() => setShowChatModal(false)}>×</button>
+              <h3>Request Donation</h3>
+              <button onClick={() => setShowRequestModal(false)}>×</button>
             </div>
-            <div className="chat-content">
-              <div className="chat-messages">
-                {chatMessages.map((msg, index) => (
-                  <div key={index} className={`chat-message ${msg.sender}`}>
-                    <div className="message-text">{msg.message}</div>
-                    <div className="message-time">
-                      {new Date(msg.createdAt).toLocaleTimeString()}
-                    </div>
-                  </div>
-                ))}
-                {chatLoading && <div className="chat-loading">AI is typing...</div>}
-              </div>
-              <form className="chat-input-area" onSubmit={handleChatSubmit}>
+            <form className="request-form" onSubmit={handleRequestSubmit}>
+              <div className="form-group">
+                <label>Your Name *</label>
                 <input 
                   type="text"
-                  placeholder="Ask about recipes, meal ideas..."
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
+                  value={requestForm.requesterName}
+                  onChange={(e) => setRequestForm({...requestForm, requesterName: e.target.value})}
+                  required
                 />
-                <button type="submit">Send</button>
-              </form>
-            </div>
+              </div>
+              <div className="form-group">
+                <label>Organization/Target *</label>
+                <input 
+                  type="text"
+                  value={requestForm.targetOrganization}
+                  onChange={(e) => setRequestForm({...requestForm, targetOrganization: e.target.value})}
+                  placeholder="e.g., ABC Charity, XYZ Elder Home"
+                  required
+                />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Organization Type *</label>
+                  <select 
+                    value={requestForm.organizationType}
+                    onChange={(e) => setRequestForm({...requestForm, organizationType: e.target.value})}
+                  >
+                    <option value="charity">Charity</option>
+                    <option value="elder-home">Elder Home</option>
+                    <option value="street-beggars">Street Beggars</option>
+                    <option value="ngo">Non-profit Organization</option>
+                    <option value="food-bank">Food Bank</option>
+                    <option value="shelter">Shelter</option>
+                    <option value="school">School</option>
+                    <option value="hospital">Hospital</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Urgency Level *</label>
+                  <select 
+                    value={requestForm.urgencyLevel}
+                    onChange={(e) => setRequestForm({...requestForm, urgencyLevel: e.target.value})}
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Purpose *</label>
+                <textarea 
+                  value={requestForm.purpose}
+                  onChange={(e) => setRequestForm({...requestForm, purpose: e.target.value})}
+                  placeholder="Why do you need this donation?"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Description *</label>
+                <textarea 
+                  value={requestForm.description}
+                  onChange={(e) => setRequestForm({...requestForm, description: e.target.value})}
+                  placeholder="Detailed description of your request"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Delivery Address *</label>
+                <textarea 
+                  value={requestForm.location.address}
+                  onChange={(e) => setRequestForm({
+                    ...requestForm, 
+                    location: {...requestForm.location, address: e.target.value}
+                  })}
+                  placeholder="Full address where food should be delivered"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Needed By *</label>
+                <input 
+                  type="date"
+                  value={requestForm.neededBy}
+                  onChange={(e) => setRequestForm({...requestForm, neededBy: e.target.value})}
+                  required
+                />
+              </div>
+
+              {/* Requested Items */}
+              <div className="form-group">
+                <label>Requested Items *</label>
+                {requestForm.requestedItems.map((item, index) => (
+                  <div key={index} className="requested-item-form">
+                    <input 
+                      type="text"
+                      placeholder="Item name"
+                      value={item.itemName}
+                      onChange={(e) => updateRequestItem(index, 'itemName', e.target.value)}
+                      required
+                    />
+                    <input 
+                      type="number"
+                      placeholder="Quantity"
+                      value={item.quantity}
+                      onChange={(e) => updateRequestItem(index, 'quantity', e.target.value)}
+                      required
+                    />
+                    <select 
+                      value={item.unit}
+                      onChange={(e) => updateRequestItem(index, 'unit', e.target.value)}
+                    >
+                      <option value="kg">kg</option>
+                      <option value="g">g</option>
+                      <option value="l">l</option>
+                      <option value="ml">ml</option>
+                      <option value="pieces">pieces</option>
+                      <option value="portions">portions</option>
+                      <option value="plates">plates</option>
+                      <option value="bowls">bowls</option>
+                    </select>
+                    <select 
+                      value={item.priority}
+                      onChange={(e) => updateRequestItem(index, 'priority', e.target.value)}
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="urgent">Urgent</option>
+                    </select>
+                    {requestForm.requestedItems.length > 1 && (
+                      <button type="button" onClick={() => removeRequestItem(index)}>Remove</button>
+                    )}
+                  </div>
+                ))}
+                <button type="button" onClick={addRequestItem}>Add Item</button>
+              </div>
+
+              {/* Contact Info */}
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Phone *</label>
+                  <input 
+                    type="tel"
+                    value={requestForm.contactInfo.phone}
+                    onChange={(e) => setRequestForm({
+                      ...requestForm, 
+                      contactInfo: {...requestForm.contactInfo, phone: e.target.value}
+                    })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Email *</label>
+                  <input 
+                    type="email"
+                    value={requestForm.contactInfo.email}
+                    onChange={(e) => setRequestForm({
+                      ...requestForm, 
+                      contactInfo: {...requestForm.contactInfo, email: e.target.value}
+                    })}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Proof Documents for Official Requests */}
+              {['charity', 'ngo', 'food-bank', 'shelter', 'school', 'hospital'].includes(requestForm.organizationType) && (
+                <div className="form-group">
+                  <label>Proof Documents * (Required for official organizations)</label>
+                  <input 
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+                    onChange={(e) => setRequestForm({
+                      ...requestForm, 
+                      proofDocuments: Array.from(e.target.files)
+                    })}
+                    required
+                  />
+                  <small>Upload organization letter, registration certificate, or other proof documents</small>
+                </div>
+              )}
+
+              <div className="form-actions">
+                <button type="submit" className="submit-btn">Submit Request</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
-
     </div>
   );
 };

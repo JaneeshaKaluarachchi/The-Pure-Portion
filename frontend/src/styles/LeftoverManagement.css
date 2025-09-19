@@ -1,167 +1,798 @@
-/* src/styles/LeftoverManagement.css */
-
-/* base layout */
 .leftover-management {
-  max-width: 1100px;
-  margin: 24px auto;
-  padding: 18px;
-  font-family: Inter, Roboto, Arial, sans-serif;
-  color: #2c3e50;
-  background: #ffffff;
-  border-radius: 10px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* header */
 .leftover-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+  gap: 15px;
 }
-.leftover-header h2 { margin: 0; font-size: 20px; }
-.header-actions { display:flex; gap:8px; }
 
-.chat-btn, .donate-btn {
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  background: #1abc9c;
+.leftover-header h2 {
+  color: #2c3e50;
+  font-size: 2rem;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.donate-btn, .request-btn {
+  background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
   color: white;
-  font-weight: 600;
-}
-.chat-btn { background: #3498db; }
-
-/* tabs */
-.tab-navigation { display:flex; gap:8px; margin: 12px 0; }
-.tab-btn {
-  background: transparent;
-  border: 1px solid #e3e6e8;
-  padding: 8px 12px;
+  border: none;
+  padding: 12px 20px;
   border-radius: 8px;
   cursor: pointer;
-}
-.tab-btn.active { background: #f4f9f8; border-color: #cfece2; }
-
-/* filters */
-.filters { display:flex; gap:12px; align-items:center; margin-bottom: 14px; flex-wrap:wrap; }
-.filter-group { display:flex; flex-direction:column; gap:6px; }
-.filter-apply-btn {
-  padding:8px 10px;
-  border-radius:8px;
-  border:none;
-  background:#2ecc71;
-  color:white;
-  cursor:pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-/* grid */
-.leftovers-grid, .donations-grid {
-  display:grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
+.request-btn {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
 }
 
-/* card */
-.leftover-card, .my-leftover-card, .pending-leftover-card {
-  display:flex;
-  gap:12px;
-  padding:12px;
-  border-radius:10px;
-  border: 1px solid #eef2f3;
-  background: white;
-  align-items:flex-start;
+.donate-btn:hover, .request-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
-.leftover-card img {
-  width:120px;
-  height:100px;
-  object-fit:cover;
-  border-radius:8px;
+
+.error-message {
+  background-color: #fee;
+  color: #c33;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border-left: 4px solid #e74c3c;
+  margin-bottom: 20px;
 }
-.leftover-content h3 { margin: 0 0 6px 0; font-size: 16px; }
-.leftover-content .description { color: #556; font-size: 14px; margin:6px 0; }
-.leftover-details { display:flex; gap:8px; margin-top:6px; font-size: 13px; color:#333; }
-.leftover-tags { margin-top:8px; display:flex; flex-wrap:wrap; gap:6px; }
-.tag { padding:4px 8px; border-radius:999px; font-size:12px; border:1px solid #eee; }
 
-/* expiry */
-.expiry.urgent { color: #d64541; font-weight:700; }
-
-/* actions */
-.leftover-actions { margin-top:10px; }
-.claim-btn, .approve-btn, .reject-btn {
-  padding:8px 10px;
-  border-radius:8px;
-  border:none;
-  cursor:pointer;
-  font-weight:600;
+.tab-navigation {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 30px;
+  border-bottom: 2px solid #ecf0f1;
+  overflow-x: auto;
 }
-.claim-btn { background:#27ae60; color:white; }
-.approve-btn { background:#2ecc71; color:white; margin-right:8px; }
-.reject-btn { background:#e74c3c; color:white; }
 
-/* my donations */
-.my-leftover-card { flex-direction:column; }
-.status-badge {
-  padding:4px 8px;
-  border-radius:8px;
-  color:white;
-  text-transform:capitalize;
-  font-weight:600;
+.tab-btn {
+  background: none;
+  border: none;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #7f8c8d;
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s ease;
+  white-space: nowrap;
 }
-.status-badge[style*="27ae60"] { background:#27ae60; }
 
-/* admin */
-.admin-section { padding:8px; }
-.pending-leftovers { display:flex; flex-direction:column; gap:10px; }
-
-/* modal / donate form */
-.modal-overlay {
-  position: fixed;
-  inset:0;
-  background: rgba(0,0,0,0.45);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:999;
+.tab-btn.active {
+  color: #2c3e50;
+  border-bottom-color: #3498db;
+  background-color: #f8f9fa;
 }
-.modal {
-  width: 720px;
-  max-width: 95%;
+
+.tab-btn:hover {
+  color: #2c3e50;
+  background-color: #f8f9fa;
+}
+
+/* Filters */
+.filters {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 25px;
+  padding: 20px;
   background: white;
   border-radius: 10px;
-  padding: 14px;
-  box-shadow: 0 12px 36px rgba(0,0,0,0.2);
-}
-.modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
-.modal-header h3 { margin:0; }
-.donation-form .form-group { margin-bottom:10px; display:flex; flex-direction:column; }
-.form-row { display:flex; gap:12px; }
-input[type="text"], input[type="number"], input[type="date"], textarea, select {
-  padding:8px;
-  border-radius:8px;
-  border:1px solid #e6e9eb;
-  font-size:14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  flex-wrap: wrap;
 }
 
-/* chat */
-.chat-modal { width: 520px; max-width: 95%; }
-.chat-messages { max-height: 320px; overflow:auto; margin-bottom:8px; display:flex; flex-direction:column; gap:8px; }
-.chat-message { padding:8px 10px; border-radius:10px; max-width:85%; }
-.chat-message.user { align-self:flex-end; background:#e9f9ff; border:1px solid #d0efff; }
-.chat-message.ai { align-self:flex-start; background:#f7f7f8; border:1px solid #e6e6e6; }
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
 
-/* LeftoverDashboard specific */
-.ld-modal-overlay { position:fixed; inset:0; background: rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:1000; }
-.ld-modal { width:600px; max-width:95%; background:white; border-radius:10px; padding:16px; box-shadow:0 8px 30px rgba(0,0,0,0.18); }
-.ld-modal-header { display:flex; justify-content:space-between; align-items:center; }
-.ld-image { width:100%; height:200px; object-fit:cover; border-radius:8px; margin-bottom:10px; }
-.ld-desc { color:#444; margin:8px 0; }
-.ld-meta { display:flex; flex-direction:column; gap:6px; font-size:14px; color:#333; margin-bottom:8px; }
-.ld-tag { display:inline-block; margin-right:6px; padding:6px 8px; border-radius:999px; border:1px solid #eaeaea; }
-.ld-allergen { background:#fff0f0; color:#9b2b2b; padding:6px 8px; border-radius:8px; margin-right:6px; }
-.ld-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
-.ld-claim-btn { background:#27ae60; color:white; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; }
-.ld-close-btn { background:#e0e6eb; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; }
+.filter-group label {
+  font-weight: 500;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.filter-group input,
+.filter-group select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+.filter-apply-btn {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+  align-self: flex-end;
+}
+
+/* Grid Layouts */
+.leftovers-grid,
+.requests-grid,
+.donations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+/* Leftover Cards */
+.leftover-card,
+.request-card,
+.my-leftover-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.leftover-card:hover,
+.request-card:hover,
+.my-leftover-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+
+.leftover-card img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+}
+
+.leftover-content {
+  padding: 20px;
+}
+
+.leftover-content h3 {
+  margin: 0 0 10px 0;
+  color: #2c3e50;
+  font-size: 1.3rem;
+}
+
+.description {
+  color: #7f8c8d;
+  margin-bottom: 15px;
+  line-height: 1.5;
+}
+
+.leftover-details {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.quantity,
+.category {
+  background: #ecf0f1;
+  padding: 4px 8px;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.expiry-info {
+  margin-bottom: 10px;
+}
+
+.expiry {
+  font-size: 13px;
+  color: #e67e22;
+  font-weight: 500;
+}
+
+.expiry.urgent {
+  color: #e74c3c;
+  font-weight: 600;
+}
+
+.location-info,
+.donor-info {
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #7f8c8d;
+}
+
+.donor-type {
+  background: #3498db;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  margin-left: 8px;
+}
+
+.leftover-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 15px;
+}
+
+.tag {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.tag.dietary {
+  background: #d5f4e6;
+  color: #27ae60;
+}
+
+.tag.allergen {
+  background: #ffeaa7;
+  color: #d63031;
+}
+
+.claim-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.claim-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+/* Request Cards */
+.request-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+  padding: 20px 20px 0;
+}
+
+.request-header h3 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1.2rem;
+}
+
+.request-badges {
+  display: flex;
+  gap: 5px;
+  flex-direction: column;
+}
+
+.urgency-badge,
+.org-type-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: white;
+  text-align: center;
+}
+
+.org-type-badge {
+  background: #95a5a6;
+}
+
+.purpose {
+  padding: 0 20px;
+  font-style: italic;
+  color: #7f8c8d;
+  margin-bottom: 10px;
+}
+
+.requested-items {
+  padding: 0 20px;
+  margin-bottom: 15px;
+}
+
+.requested-items h4 {
+  margin: 0 0 10px 0;
+  color: #2c3e50;
+  font-size: 1rem;
+}
+
+.requested-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid #ecf0f1;
+}
+
+.priority {
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.priority.low { background: #d5f4e6; color: #27ae60; }
+.priority.medium { background: #ffeaa7; color: #f39c12; }
+.priority.high { background: #fab1a0; color: #e17055; }
+.priority.urgent { background: #ff7675; color: white; }
+
+.request-meta {
+  padding: 0 20px;
+  margin-bottom: 15px;
+  font-size: 13px;
+  color: #7f8c8d;
+}
+
+.request-meta span {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.fulfillment-progress {
+  padding: 0 20px;
+  margin-bottom: 15px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #ecf0f1;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 5px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #27ae60, #2ecc71);
+  transition: width 0.3s ease;
+}
+
+.request-actions,
+.leftover-actions {
+  padding: 0 20px 20px;
+}
+
+.fulfill-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.fulfill-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+/* My Donations */
+.leftover-header-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 20px 0;
+  margin-bottom: 10px;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+}
+
+.leftover-meta {
+  padding: 0 20px;
+  margin-bottom: 15px;
+  font-size: 13px;
+  color: #7f8c8d;
+}
+
+.leftover-meta span {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.claimed-info,
+.notes {
+  padding: 0 20px;
+  margin-bottom: 15px;
+  font-size: 13px;
+}
+
+.claimed-info {
+  background: #e8f5e8;
+  padding: 10px 20px;
+  color: #27ae60;
+}
+
+/* Admin Panel */
+.admin-section {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.admin-section h3 {
+  color: #2c3e50;
+  margin-bottom: 20px;
+  font-size: 1.4rem;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 10px;
+}
+
+.pending-leftovers,
+.pending-requests {
+  display: grid;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.pending-leftover-card,
+.pending-request-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  border-left: 4px solid #f39c12;
+}
+
+.leftover-info,
+.request-info {
+  flex: 1;
+}
+
+.leftover-info h4,
+.request-info h4 {
+  margin: 0 0 10px 0;
+  color: #2c3e50;
+}
+
+.donor-details,
+.request-details {
+  font-size: 13px;
+  color: #7f8c8d;
+}
+
+.donor-details span,
+.request-details span {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.official-badge {
+  background: #e74c3c;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.requested-items-admin {
+  margin-top: 10px;
+}
+
+.requested-items-admin span {
+  display: inline-block;
+  background: #ecf0f1;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin: 2px;
+  font-size: 11px;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 10px;
+  flex-direction: column;
+  min-width: 120px;
+}
+
+.approve-btn,
+.reject-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all 0.3s ease;
+}
+
+.approve-btn {
+  background: #27ae60;
+  color: white;
+}
+
+.reject-btn {
+  background: #e74c3c;
+  color: white;
+}
+
+.approve-btn:hover,
+.reject-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal {
+  background: white;
+  border-radius: 12px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 25px;
+  border-bottom: 1px solid #ecf0f1;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1.3rem;
+}
+
+.modal-header button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #7f8c8d;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.donation-form,
+.request-form {
+  padding: 25px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.requested-item-form {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr auto;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.requested-item-form button {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.form-group small {
+  display: block;
+  margin-top: 5px;
+  color: #7f8c8d;
+  font-size: 12px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 1px solid #ecf0f1;
+}
+
+.submit-btn {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #7f8c8d;
+  font-size: 16px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .leftover-management {
+    padding: 15px;
+  }
+
+  .leftover-header {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .header-actions {
+    justify-content: center;
+  }
+
+  .tab-navigation {
+    justify-content: center;
+  }
+
+  .filters {
+    flex-direction: column;
+  }
+
+  .leftovers-grid,
+  .requests-grid,
+  .donations-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .requested-item-form {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .pending-leftover-card,
+  .pending-request-card {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .admin-actions {
+    flex-direction: row;
+    min-width: auto;
+  }
+
+  .modal {
+    margin: 10px;
+    max-height: 95vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .leftover-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .donate-btn,
+  .request-btn {
+    padding: 10px 15px;
+    font-size: 13px;
+  }
+
+  .tab-btn {
+    padding: 10px 15px;
+    font-size: 13px;
+  }
+
+  .modal-header {
+    padding: 15px 20px;
+  }
+
+  .donation-form,
+  .request-form {
+    padding: 20px;
+  }
+}

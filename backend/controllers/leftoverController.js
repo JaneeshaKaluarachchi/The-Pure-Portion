@@ -2,15 +2,21 @@ const Leftover = require('../models/Leftover');
 const DonationRequest = require('../models/DonationRequest');
 const Inventory = require('../models/Inventory');
 const User = require('../models/User');
-const ChatMessage = require('../models/ChatMessage');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
+const mongoose = require('mongoose');
 
-// Configure multer for image uploads
+// Configure multer for file uploads (images and documents)
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
-    const uploadPath = path.join(__dirname, '../uploads/leftovers');
+    let uploadPath;
+    if (file.fieldname === 'proofDocuments') {
+      uploadPath = path.join(__dirname, '../uploads/documents');
+    } else {
+      uploadPath = path.join(__dirname, '../uploads/leftovers');
+    }
+    
     try {
       await fs.mkdir(uploadPath, { recursive: true });
       cb(null, uploadPath);
@@ -20,22 +26,37 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'leftover-' + uniqueSuffix + path.extname(file.originalname));
+    const prefix = file.fieldname === 'proofDocuments' ? 'proof-' : 'leftover-';
+    cb(null, prefix + uniqueSuffix + path.extname(file.originalname));
   }
 });
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (mimetype && extname) {
-      return cb(null, true);
+    if (file.fieldname === 'proofDocuments') {
+      // Allow documents for proof
+      const allowedTypes = /pdf|doc|docx|jpg|jpeg|png|gif/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = allowedTypes.test(file.mimetype);
+      
+      if (mimetype && extname) {
+        return cb(null, true);
+      } else {
+        cb(new Error('Only PDF, DOC, DOCX, and image files are allowed for proof documents'));
+      }
     } else {
-      cb(new Error('Only image files are allowed'));
+      // Allow images for leftovers
+      const allowedTypes = /jpeg|jpg|png|gif|webp/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = allowedTypes.test(file.mimetype);
+      
+      if (mimetype && extname) {
+        return cb(null, true);
+      } else {
+        cb(new Error('Only image files are allowed'));
+      }
     }
   }
 });
@@ -65,20 +86,10 @@ const getAllLeftovers = async (req, res) => {
       query.category = category;
     }
 
-    // Location-based filtering
+    // Location-based filtering (simplified without Google Maps)
     if (location) {
-      const [lat, lng] = location.split(',').map(Number);
-      if (!isNaN(lat) && !isNaN(lng)) {
-        query['location.coordinates'] = {
-          $near: {
-            $geometry: {
-              type: 'Point',
-              coordinates: [lng, lat]
-            },
-            $maxDistance: radius * 1000 // Convert km to meters
-          }
-        };
-      }
+      // Simple text-based location search
+      query['location.address'] = { $regex: location, $options: 'i' };
     }
 
     const skip = (page - 1) * limit;
@@ -86,8 +97,8 @@ const getAllLeftovers = async (req, res) => {
     sortObj[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
     const leftovers = await Leftover.find(query)
-      .populate('donorId', 'name userType')
-      .populate('claimedBy.userId', 'name')
+      .populate('donorId', 'firstName lastName restaurantName email role')
+      .populate('claimedBy.userId', 'firstName lastName restaurantName')
       .sort(sortObj)
       .skip(skip)
       .limit(parseInt(limit));
@@ -120,7 +131,7 @@ const getUserLeftovers = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const leftovers = await Leftover.find({ donorId: req.user.id })
-      .populate('claimedBy.userId', 'name userType')
+      .populate('claimedBy.userId', 'firstName lastName restaurantName')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -146,36 +157,7 @@ const getUserLeftovers = async (req, res) => {
   }
 };
 
-// Get soon-to-expire inventory items for donation
-const getSoonToExpireItems = async (req, res) => {
-  try {
-    const { days = 3 } = req.query;
-    const expiryThreshold = new Date();
-    expiryThreshold.setDate(expiryThreshold.getDate() + parseInt(days));
-
-    const soonToExpireItems = await Inventory.find({
-      restaurantId: req.user.id,
-      expiryDate: { $lte: expiryThreshold },
-      currentQuantity: { $gt: 0 },
-      isActive: true
-    }).sort({ expiryDate: 1 });
-
-    res.json({
-      success: true,
-      items: soonToExpireItems
-    });
-  } catch (error) {
-    console.error('Error fetching soon-to-expire items:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch soon-to-expire items',
-      error: error.message
-    });
-  }
-};
-
 // Create new leftover donation
-
 const createLeftover = async (req, res) => {
   try {
     const {
@@ -185,7 +167,8 @@ const createLeftover = async (req, res) => {
       unit,
       category,
       expiryDate,
-      location,
+      address,
+      coordinates,
       notes,
       nutritionalInfo,
       allergens,
@@ -195,7 +178,7 @@ const createLeftover = async (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!name || !description || !quantity || !unit || !category || !expiryDate || !location) {
+    if (!name || !description || !quantity || !unit || !category || !expiryDate || !address) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields'
@@ -214,85 +197,50 @@ const createLeftover = async (req, res) => {
       ? `${user.firstName} ${user.lastName}`
       : user.restaurantName || user.email;
 
+    const donorType = user.role || user.userType;
 
-const donorType = user.role || user.userType;
-
-let parsedLocation = {};
-    try {
-      parsedLocation = JSON.parse(location);
-    } catch (err) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid location format"
-      });
+    // Parse coordinates if provided
+    let parsedCoordinates = {};
+    if (coordinates) {
+      try {
+        parsedCoordinates = typeof coordinates === 'string' ? JSON.parse(coordinates) : coordinates;
+      } catch (err) {
+        parsedCoordinates = {};
+      }
     }
 
-    if (
-      !parsedLocation.coordinates ||
-      parsedLocation.coordinates.lat == null ||
-      parsedLocation.coordinates.lng == null
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Location must include valid latitude and longitude"
-      });
-    }
-
-    const geoLocation = {
-      address: parsedLocation.address,
-      type: "Point",
-      coordinates: [
-        parseFloat(parsedLocation.coordinates.lng),
-        parseFloat(parsedLocation.coordinates.lat)
-      ]
-    };
-
-
-   const leftoverData = {
+    const leftoverData = {
       name,
       description,
       quantity: parseFloat(quantity),
       unit,
       category,
       expiryDate: new Date(expiryDate),
-      location: geoLocation,
+      location: {
+        address,
+        geo: {
+          type: 'Point',
+          coordinates: [
+            parsedCoordinates.lng || 0,
+            parsedCoordinates.lat || 0
+          ]
+        }
+      },
       donorId: req.user.id,
       donorName,
       donorType,
       notes,
-      nutritionalInfo: nutritionalInfo ? JSON.parse(nutritionalInfo) : {},
-      allergens: allergens ? JSON.parse(allergens) : [],
-      dietaryTags: dietaryTags ? JSON.parse(dietaryTags) : [],
+      nutritionalInfo: nutritionalInfo ? (typeof nutritionalInfo === 'string' ? JSON.parse(nutritionalInfo) : nutritionalInfo) : {},
+      allergens: allergens ? (typeof allergens === 'string' ? JSON.parse(allergens) : allergens) : [],
+      dietaryTags: dietaryTags ? (typeof dietaryTags === 'string' ? JSON.parse(dietaryTags) : dietaryTags) : [],
       pickupInstructions,
-      contactInfo: contactInfo ? JSON.parse(contactInfo) : {},
+      contactInfo: contactInfo ? (typeof contactInfo === 'string' ? JSON.parse(contactInfo) : contactInfo) : {},
       requestType: "donation"
     };
-
-    const newLeftover = new Leftover(leftoverData);
-    await newLeftover.save();
-
-    
 
     // Add image URL if uploaded
     if (req.file) {
       leftoverData.imageUrl = `/uploads/leftovers/${req.file.filename}`;
-    }
-
-    // Handle inventory items if provided
-    if (inventoryItemIds && inventoryItemIds.length > 0) {
-      const inventoryItems = [];
-      const itemIds = JSON.parse(inventoryItemIds);
-      
-      for (const itemId of itemIds) {
-        const inventoryItem = await Inventory.findById(itemId);
-        if (inventoryItem && inventoryItem.restaurantId.toString() === req.user.id) {
-          inventoryItems.push({
-            inventoryId: itemId,
-            quantityUsed: Math.min(inventoryItem.currentQuantity, parseFloat(quantity))
-          });
-        }
-      }
-      leftoverData.inventoryItems = inventoryItems;
     }
 
     const leftover = new Leftover(leftoverData);
@@ -300,8 +248,8 @@ let parsedLocation = {};
 
     res.status(201).json({
       success: true,
-      message: "Leftover created successfully",
-      data: newLeftover
+      message: "Leftover created successfully and pending admin approval",
+      data: leftover
     });
   } catch (error) {
     console.error("Error creating leftover:", error);
@@ -326,12 +274,13 @@ const createDonationRequest = async (req, res) => {
       neededBy,
       description,
       contactInfo,
+      purpose,
       notes
     } = req.body;
 
     // Validate required fields
     if (!requesterName || !targetOrganization || !organizationType || !location || 
-        !requestedItems || !neededBy || !description || !contactInfo) {
+        !requestedItems || !neededBy || !description || !contactInfo || !purpose) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields'
@@ -343,21 +292,33 @@ const createDonationRequest = async (req, res) => {
       requesterId: req.user.id,
       targetOrganization,
       organizationType,
-      location: JSON.parse(location),
-      requestedItems: JSON.parse(requestedItems),
+      purpose,
+      location: typeof location === 'string' ? JSON.parse(location) : location,
+      requestedItems: typeof requestedItems === 'string' ? JSON.parse(requestedItems) : requestedItems,
       urgencyLevel: urgencyLevel || 'medium',
       neededBy: new Date(neededBy),
       description,
-      contactInfo: JSON.parse(contactInfo),
+      contactInfo: typeof contactInfo === 'string' ? JSON.parse(contactInfo) : contactInfo,
       notes: notes || ''
     };
+
+    // Handle proof documents if uploaded
+    if (req.files && req.files.length > 0) {
+      requestData.proofDocuments = req.files.map(file => ({
+        filename: file.filename,
+        originalName: file.originalname,
+        path: file.path,
+        mimetype: file.mimetype,
+        size: file.size
+      }));
+    }
 
     const donationRequest = new DonationRequest(requestData);
     await donationRequest.save();
 
     res.status(201).json({
       success: true,
-      message: 'Donation request created successfully',
+      message: 'Donation request created successfully and pending admin approval',
       request: donationRequest
     });
   } catch (error) {
@@ -388,26 +349,15 @@ const getDonationRequests = async (req, res) => {
       query.urgencyLevel = urgency;
     }
 
-    // Location-based filtering
+    // Location-based filtering (simplified)
     if (location) {
-      const [lat, lng] = location.split(',').map(Number);
-      if (!isNaN(lat) && !isNaN(lng)) {
-        query['location.coordinates'] = {
-          $near: {
-            $geometry: {
-              type: 'Point',
-              coordinates: [lng, lat]
-            },
-            $maxDistance: radius * 1000
-          }
-        };
-      }
+      query['location.address'] = { $regex: location, $options: 'i' };
     }
 
     const skip = (page - 1) * limit;
 
     const requests = await DonationRequest.find(query)
-      .populate('requesterId', 'name userType')
+      .populate('requesterId', 'firstName lastName email role')
       .sort({ urgencyLevel: -1, neededBy: 1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -437,7 +387,7 @@ const getDonationRequests = async (req, res) => {
 const fulfillDonationRequest = async (req, res) => {
   try {
     const { requestId } = req.params;
-    const { items, inventoryItemIds } = req.body; // items to donate and inventory IDs
+    let { items, inventoryItemIds } = req.body;
 
     const donationRequest = await DonationRequest.findById(requestId);
     if (!donationRequest) {
@@ -455,8 +405,20 @@ const fulfillDonationRequest = async (req, res) => {
     }
 
     const user = await User.findById(req.user.id);
-    const donationItems = JSON.parse(items);
-    const inventoryIds = inventoryItemIds ? JSON.parse(inventoryItemIds) : [];
+
+    // Ensure donationItems is an array
+    let donationItems = [];
+    if (items) {
+      donationItems = typeof items === 'string' ? JSON.parse(items) : items;
+      if (!Array.isArray(donationItems)) donationItems = [];
+    }
+
+    // Ensure inventoryIds is an array
+    let inventoryIds = [];
+    if (inventoryItemIds) {
+      inventoryIds = typeof inventoryItemIds === 'string' ? JSON.parse(inventoryItemIds) : inventoryItemIds;
+      if (!Array.isArray(inventoryIds)) inventoryIds = [];
+    }
 
     // Process inventory deduction
     for (let i = 0; i < donationItems.length; i++) {
@@ -464,28 +426,29 @@ const fulfillDonationRequest = async (req, res) => {
       if (inventoryIds[i]) {
         const inventoryItem = await Inventory.findById(inventoryIds[i]);
         if (inventoryItem && inventoryItem.restaurantId.toString() === req.user.id) {
-          // Deduct from inventory
-          inventoryItem.currentQuantity = Math.max(0, inventoryItem.currentQuantity - item.quantity);
+          inventoryItem.currentQuantity = Math.max(0, inventoryItem.currentQuantity - (item.quantity || 0));
           await inventoryItem.save();
-          
-          // Add inventory reference to donation item
           item.inventoryId = inventoryIds[i];
         }
       }
     }
 
+    const donorName = user.firstName ? `${user.firstName} ${user.lastName}` : user.restaurantName || user.email;
+
     // Add donation to request
     donationRequest.donations.push({
       donorId: req.user.id,
-      donorName: user.name,
+      donorName,
       items: donationItems,
       donatedAt: new Date(),
       status: 'pledged'
     });
 
-    // Calculate fulfillment
-    donationRequest.calculateFulfillment();
-    
+    // Calculate fulfillment safely
+    if (typeof donationRequest.calculateFulfillment === 'function') {
+      donationRequest.calculateFulfillment();
+    }
+
     // Update status if fully fulfilled
     if (donationRequest.totalFulfillment >= 100) {
       donationRequest.status = 'fulfilled';
@@ -536,11 +499,12 @@ const claimLeftover = async (req, res) => {
     }
 
     const user = await User.findById(req.user.id);
+    const userName = user.firstName ? `${user.firstName} ${user.lastName}` : user.restaurantName || user.email;
     
     leftover.status = 'claimed';
     leftover.claimedBy = {
       userId: req.user.id,
-      userName: user.name,
+      userName: userName,
       claimedAt: new Date()
     };
 
@@ -564,7 +528,7 @@ const claimLeftover = async (req, res) => {
 // Admin functions
 const getPendingLeftovers = async (req, res) => {
   try {
-    if (req.user.userType !== 'admin') {
+    if (req.user.role !== 'admin' && req.user.userType !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Access denied. Admin rights required.'
@@ -580,7 +544,7 @@ const getPendingLeftovers = async (req, res) => {
     }
 
     const leftovers = await Leftover.find(query)
-      .populate('donorId', 'name userType email')
+      .populate('donorId', 'firstName lastName restaurantName email role')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -608,7 +572,7 @@ const getPendingLeftovers = async (req, res) => {
 
 const getPendingDonationRequests = async (req, res) => {
   try {
-    if (req.user.userType !== 'admin') {
+    if (req.user.role !== 'admin' && req.user.userType !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Access denied. Admin rights required.'
@@ -619,7 +583,7 @@ const getPendingDonationRequests = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const requests = await DonationRequest.find({ status: 'pending' })
-      .populate('requesterId', 'name userType email')
+      .populate('requesterId', 'firstName lastName email role')
       .sort({ urgencyLevel: -1, createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -647,7 +611,7 @@ const getPendingDonationRequests = async (req, res) => {
 
 const approveLeftover = async (req, res) => {
   try {
-    if (req.user.userType !== 'admin') {
+    if (req.user.role !== 'admin' && req.user.userType !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Access denied. Admin rights required.'
@@ -655,7 +619,7 @@ const approveLeftover = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { action, reason } = req.body; // action: 'approve' | 'reject'
+    const { action, reason } = req.body;
 
     const leftover = await Leftover.findById(id);
     if (!leftover) {
@@ -672,16 +636,18 @@ const approveLeftover = async (req, res) => {
       });
     }
 
-    const admin = await User.findById(req.user.id);
-    
-    if (action === 'approve') {
-      leftover.status = 'approved';
-      leftover.approvedBy = {
-        adminId: req.user.id,
-        adminName: admin.name,
-        approvedAt: new Date()
-      };
-    } else if (action === 'reject') {
+const adminId = req.user._id; // must be a valid ObjectId
+const adminName = req.user.name || 'Admin';
+
+if (action === 'approve') {
+  leftover.status = 'approved';
+  leftover.approvedBy = {
+    adminId: adminId, // must be ObjectId
+    adminName,
+    approvedAt: new Date()
+  };
+}
+ else if (action === 'reject') {
       leftover.status = 'rejected';
       leftover.notes = reason || 'Rejected by admin';
     } else {
@@ -698,6 +664,7 @@ const approveLeftover = async (req, res) => {
       message: `Leftover ${action}d successfully`,
       leftover
     });
+    
   } catch (error) {
     console.error('Error updating leftover status:', error);
     res.status(500).json({
@@ -710,7 +677,8 @@ const approveLeftover = async (req, res) => {
 
 const approveDonationRequest = async (req, res) => {
   try {
-    if (req.user.userType !== 'admin') {
+    // Only admins can approve/reject
+    if (req.user.role !== 'admin' && req.user.userType !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Access denied. Admin rights required.'
@@ -718,7 +686,7 @@ const approveDonationRequest = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { action, reason } = req.body; // action: 'approve' | 'reject'
+    const { action, reason, adminNotes } = req.body;
 
     const donationRequest = await DonationRequest.findById(id);
     if (!donationRequest) {
@@ -735,22 +703,43 @@ const approveDonationRequest = async (req, res) => {
       });
     }
 
-    const admin = await User.findById(req.user.id);
-    
+    // Ensure adminId is a valid ObjectId
+    const adminIdString = req.user._id || req.user.id;
+    if (!adminIdString || !mongoose.Types.ObjectId.isValid(adminIdString)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid admin ID. Must be a valid ObjectId.'
+      });
+    }
+
+    const adminId = new mongoose.Types.ObjectId(adminIdString);
+
+    const adminName =
+      req.user.firstName && req.user.lastName
+        ? `${req.user.firstName} ${req.user.lastName}`
+        : req.user.name || 'Admin';
+
     if (action === 'approve') {
       donationRequest.status = 'approved';
       donationRequest.approvedBy = {
-        adminId: req.user.id,
-        adminName: admin.name,
-        approvedAt: new Date()
+        adminId,
+        adminName,
+        approvedAt: new Date(),
+        adminNotes: adminNotes || ''
       };
     } else if (action === 'reject') {
       donationRequest.status = 'rejected';
-      donationRequest.notes = reason || 'Rejected by admin';
+      donationRequest.rejectionReason = reason || 'Rejected by admin';
+      donationRequest.approvedBy = {
+        adminId,
+        adminName,
+        approvedAt: new Date(),
+        adminNotes: adminNotes || ''
+      };
     } else {
       return res.status(400).json({
         success: false,
-        message: 'Invalid action. Use "approve" or "reject"'
+        message: 'Invalid action. Use "approve" or "reject"',
       });
     }
 
@@ -759,200 +748,80 @@ const approveDonationRequest = async (req, res) => {
     res.json({
       success: true,
       message: `Donation request ${action}d successfully`,
-      request: donationRequest
+      request: donationRequest,
     });
   } catch (error) {
     console.error('Error updating donation request status:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update donation request status',
-      error: error.message
+      error: error.message,
     });
   }
 };
 
-// AI Chat functions
-const chatWithAI = async (req, res) => {
-  try {
-    const { message, sessionId, leftovers } = req.body;
 
-    if (!message || !sessionId) {
-      return res.status(400).json({
+
+// Get dashboard statistics for admin
+const getDashboardStats = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.userType !== 'admin') {
+      return res.status(403).json({
         success: false,
-        message: 'Message and session ID are required'
+        message: 'Access denied. Admin rights required.'
       });
     }
 
-    // Save user message
-    const userMessage = new ChatMessage({
-      sessionId,
-      userId: req.user.id,
-      message,
-      sender: 'user',
-      context: { leftovers: leftovers || [] }
-    });
-    await userMessage.save();
-
-    // Generate AI response (mock implementation)
-    const aiResponse = await generateAIResponse(message, leftovers || []);
-
-    // Save AI response
-    const aiMessage = new ChatMessage({
-      sessionId,
-      userId: req.user.id,
-      message: aiResponse.message,
-      sender: 'ai',
-      messageType: aiResponse.type,
-      context: aiResponse.context,
-      metadata: aiResponse.metadata
-    });
-    await aiMessage.save();
+    const [
+      totalLeftovers,
+      pendingLeftovers,
+      approvedLeftovers,
+      totalRequests,
+      pendingRequests,
+      approvedRequests,
+      totalUsers
+    ] = await Promise.all([
+      Leftover.countDocuments(),
+      Leftover.countDocuments({ status: 'pending' }),
+      Leftover.countDocuments({ status: 'approved' }),
+      DonationRequest.countDocuments(),
+      DonationRequest.countDocuments({ status: 'pending' }),
+      DonationRequest.countDocuments({ status: 'approved' }),
+      User.countDocuments()
+    ]);
 
     res.json({
       success: true,
-      response: aiResponse
+      stats: {
+        leftovers: {
+          total: totalLeftovers,
+          pending: pendingLeftovers,
+          approved: approvedLeftovers
+        },
+        requests: {
+          total: totalRequests,
+          pending: pendingRequests,
+          approved: approvedRequests
+        },
+        users: {
+          total: totalUsers
+        }
+      }
     });
   } catch (error) {
-    console.error('Error in AI chat:', error);
+    console.error('Error fetching dashboard stats:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to process AI chat',
+      message: 'Failed to fetch dashboard statistics',
       error: error.message
     });
   }
-};
-
-const getChatHistory = async (req, res) => {
-  try {
-    const { sessionId } = req.params;
-    const { limit = 50 } = req.query;
-
-    const messages = await ChatMessage.find({
-      sessionId,
-      userId: req.user.id
-    })
-    .sort({ createdAt: 1 })
-    .limit(parseInt(limit));
-
-    res.json({
-      success: true,
-      messages
-    });
-  } catch (error) {
-    console.error('Error fetching chat history:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch chat history',
-      error: error.message
-    });
-  }
-};
-
-// Mock AI response generator
-const generateAIResponse = async (message, leftovers) => {
-  const startTime = Date.now();
-  
-  // Simple keyword-based responses (in production, use actual AI service)
-  const lowerMessage = message.toLowerCase();
-  
-  if (lowerMessage.includes('recipe') || lowerMessage.includes('cook') || lowerMessage.includes('make')) {
-    const recipes = generateRecipeSuggestions(leftovers);
-    return {
-      message: `Based on your leftovers, here are some recipe suggestions:\n\n${recipes.map((r, i) => 
-        `${i + 1}. **${r.name}** (${r.difficulty}, ${r.cookTime})\n   Ingredients: ${r.ingredients.join(', ')}\n`
-      ).join('\n')}`,
-      type: 'recipe-suggestion',
-      context: { suggestedRecipes: recipes },
-      metadata: {
-        responseTime: Date.now() - startTime,
-        confidence: 0.8,
-        source: 'recipe-database'
-      }
-    };
-  } else if (lowerMessage.includes('nutrition') || lowerMessage.includes('healthy') || lowerMessage.includes('calories')) {
-    return {
-      message: `Here's some nutritional information about your leftovers:\n\n${leftovers.map(item => 
-        `• **${item.name}**: Estimated ${Math.round(item.quantity * 50)} calories per ${item.unit}`
-      ).join('\n')}\n\n💡 Tip: Combine vegetables with proteins for balanced meals!`,
-      type: 'nutrition-info',
-      context: { leftovers },
-      metadata: {
-        responseTime: Date.now() - startTime,
-        confidence: 0.7,
-        source: 'nutrition-database'
-      }
-    };
-  } else if (lowerMessage.includes('storage') || lowerMessage.includes('preserve') || lowerMessage.includes('keep')) {
-    return {
-      message: `Here are some storage tips for your leftovers:\n\n🔸 **Refrigeration**: Most cooked leftovers last 3-4 days in the fridge\n🔸 **Freezing**: Many items can be frozen for 2-3 months\n🔸 **Containers**: Use airtight containers to maintain freshness\n🔸 **Labeling**: Always label with date and contents\n\nWould you like specific storage advice for any particular item?`,
-      type: 'text',
-      context: { leftovers },
-      metadata: {
-        responseTime: Date.now() - startTime,
-        confidence: 0.9,
-        source: 'food-safety-guidelines'
-      }
-    };
-  } else {
-    return {
-      message: `I'm here to help you with leftover recipes and food management! You can ask me about:\n\n🍳 Recipe suggestions for your leftovers\n📊 Nutritional information\n🥫 Food storage tips\n♻️ Ways to reduce food waste\n\nWhat would you like to know?`,
-      type: 'text',
-      context: { leftovers },
-      metadata: {
-        responseTime: Date.now() - startTime,
-        confidence: 0.6,
-        source: 'general-help'
-      }
-    };
-  }
-};
-
-const generateRecipeSuggestions = (leftovers) => {
-  const recipes = [
-    {
-      name: 'Leftover Fried Rice',
-      difficulty: 'Easy',
-      cookTime: '15 mins',
-      ingredients: ['rice', 'vegetables', 'soy sauce', 'eggs']
-    },
-    {
-      name: 'Veggie Stir-fry',
-      difficulty: 'Easy',
-      cookTime: '10 mins',
-      ingredients: ['mixed vegetables', 'garlic', 'oil', 'seasonings']
-    },
-    {
-      name: 'Leftover Soup',
-      difficulty: 'Medium',
-      cookTime: '20 mins',
-      ingredients: ['broth', 'leftover proteins', 'vegetables', 'herbs']
-    },
-    {
-      name: 'Sandwich Wrap',
-      difficulty: 'Easy',
-      cookTime: '5 mins',
-      ingredients: ['tortilla', 'leftover meats', 'vegetables', 'sauce']
-    }
-  ];
-  
-  // Filter based on available leftovers (simplified logic)
-  const availableIngredients = leftovers.map(item => item.name.toLowerCase());
-  
-  return recipes.filter(recipe => 
-    recipe.ingredients.some(ingredient => 
-      availableIngredients.some(available => 
-        available.includes(ingredient.split(' ')[0]) || 
-        ingredient.includes(available.split(' ')[0])
-      )
-    )
-  ).slice(0, 3);
 };
 
 module.exports = {
   upload,
   getAllLeftovers,
   getUserLeftovers,
-  getSoonToExpireItems,
   createLeftover,
   createDonationRequest,
   getDonationRequests,
@@ -962,6 +831,5 @@ module.exports = {
   getPendingDonationRequests,
   approveLeftover,
   approveDonationRequest,
-  chatWithAI,
-  getChatHistory
+  getDashboardStats
 };

@@ -35,10 +35,6 @@ const donationRequestSchema = new mongoose.Schema({
       type: String,
       required: true
     },
-    coordinates: {
-      lat: Number,
-      lng: Number
-    }
   },
   requestedItems: [{
     itemName: {
@@ -177,6 +173,11 @@ donationRequestSchema.pre('save', async function(next) {
     const count = await mongoose.model('DonationRequest').countDocuments();
     this.requestId = `DR${String(count + 1).padStart(6, '0')}`;
   }
+  
+  // Check if request needs verification based on organization type
+  const officialTypes = ['charity', 'ngo', 'food-bank', 'shelter', 'school', 'hospital'];
+  this.isOfficialRequest = officialTypes.includes(this.organizationType);
+  
   next();
 });
 
@@ -208,7 +209,6 @@ donationRequestSchema.index({ status: 1, neededBy: 1 });
 donationRequestSchema.index({ requesterId: 1 });
 donationRequestSchema.index({ urgencyLevel: 1 });
 donationRequestSchema.index({ organizationType: 1 });
-donationRequestSchema.index({ 'location.coordinates': '2dsphere' });
 donationRequestSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('DonationRequest', donationRequestSchema);

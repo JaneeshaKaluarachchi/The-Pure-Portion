@@ -237,11 +237,13 @@ const generateAttendancePDF = async (req, res) => {
 
     // Build query
     let query = {};
-    if (staffId) query.staffId = staffId;
-    else {
+    if (staffId) {
+      query.staffId = staffId;
+    } else {
       const restaurantStaff = await Staff.find({ restaurantId }, '_id');
       query.staffId = { $in: restaurantStaff.map(s => s._id) };
     }
+
     if (startDate || endDate) {
       query.date = {};
       if (startDate) query.date.$gte = new Date(startDate);
@@ -260,25 +262,25 @@ const generateAttendancePDF = async (req, res) => {
       return res.status(404).json({ message: 'No attendance records found for the specified criteria' });
     }
 
-    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    // ✅ Important: bufferPages enabled
+    const doc = new PDFDocument({ margin: 40, size: 'A4', bufferPages: true });
 
-    // Response headers
+    // Set headers
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="Attendance_Report_${Date.now()}.pdf"`
     );
+
     doc.pipe(res);
 
-    // Add logo
+    // ================== PDF CONTENT ==================
     const logoPath = path.join('D:', 'Pure_Portions', 'frontend', 'src', 'styles', 'images', '1.png');
     if (fs.existsSync(logoPath)) doc.image(logoPath, 40, 30, { width: 120 });
 
-    // Title
     doc.fontSize(22).font('Helvetica-Bold').fillColor('#2c3e50')
       .text('Staff Attendance Report', 0, 40, { align: 'right' });
 
-    // Date/time
     const now = new Date();
     doc.fontSize(10).font('Helvetica').fillColor('black')
       .text(`Generated on: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`, { align: 'right' });
@@ -287,12 +289,7 @@ const generateAttendancePDF = async (req, res) => {
     if (endDate) doc.text(`To: ${new Date(endDate).toLocaleDateString()}`, { align: 'right' });
     doc.moveDown(2);
 
-    // Summary section
-    const totalRecords = attendanceRecords.length;
-    const totalHours = attendanceRecords.reduce((sum, r) => sum + (r.totalHours || 0), 0);
-    const totalOvertime = attendanceRecords.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
-
-    // Group by staff
+    // Group records by staff
     const staffGroups = {};
     attendanceRecords.forEach(record => {
       const staffKey = record.staffId._id.toString();
@@ -327,30 +324,31 @@ const generateAttendancePDF = async (req, res) => {
         .text(new Date(record.date).toLocaleDateString(), 40, y)
         .text(record.timeIn ? new Date(record.timeIn).toLocaleTimeString() : '-', 120, y)
         .text(record.timeOut ? new Date(record.timeOut).toLocaleTimeString() : '-', 190, y)
-        .text(record.totalHours ? record.totalHours.toFixed(2) : '0', 260, y)
-        .text(record.overtimeHours ? record.overtimeHours.toFixed(2) : '0', 330, y)
+        .text(record.totalHours ? record.totalHours.toFixed(2) : '0.00', 260, y)
+        .text(record.overtimeHours ? record.overtimeHours.toFixed(2) : '0.00', 330, y)
         .fillColor(statusColor)
         .text(record.status.toUpperCase(), 400, y);
+
       y += rowHeight;
 
-      if (y > doc.page.height - 50) {
+      if (y > doc.page.height - 80) {
         doc.addPage();
         y = 50;
+        drawTableHeader();
       }
     };
 
     Object.values(staffGroups).forEach(group => {
       const { staff, records } = group;
 
-      // Staff header
       doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50')
         .text(`${staff.firstName} ${staff.lastName} (${staff.staffId})`, 35, y, { underline: true });
       y += 20;
 
-      // Staff summary
       const staffTotalHours = records.reduce((sum, r) => sum + (r.totalHours || 0), 0);
       const staffOvertime = records.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
       const staffTotalDays = records.length;
+
       doc.fontSize(10).font('Helvetica').fillColor('#000')
         .text(`Total Days: ${staffTotalDays} | Total Hours: ${staffTotalHours.toFixed(2)} | Overtime: ${staffOvertime.toFixed(2)}`, 35, y);
       y += 20;
@@ -360,7 +358,7 @@ const generateAttendancePDF = async (req, res) => {
       y += 10;
     });
 
-    // Footer with page numbers
+    // ✅ Add page numbers
     const range = doc.bufferedPageRange();
     for (let i = 0; i < range.count; i++) {
       doc.switchToPage(i);
@@ -368,10 +366,14 @@ const generateAttendancePDF = async (req, res) => {
         .text(`Page ${i + 1} of ${range.count}`, 50, doc.page.height - 20, { align: 'center' });
     }
 
+    // ✅ Properly end the PDF
     doc.end();
+
   } catch (error) {
     console.error('Generate PDF error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
   }
 };
 
