@@ -1,19 +1,24 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import { useAuth } from '../contexts/AuthContext';
+import LoadingScreen from "./LoadingScreen";
+import NotificationCenter from "./NotificationCenter";
 import "../styles/PortionCalculator.css";
 
 const PortionCalculator = () => {
+  const { currentUser } = useAuth(); // Get user from AuthContext
   const [recipes, setRecipes] = useState([]);
   const [selectedMainMeal, setSelectedMainMeal] = useState(null);
   const [selectedCurries, setSelectedCurries] = useState([]);
   const [peopleCount, setPeopleCount] = useState(1);
   const [planName, setPlanName] = useState("");
-  const [userType, setUserType] = useState("restaurant");
+  const [userRole, setUserRole] = useState(null); // Auto-detected user role
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [generatedPlan, setGeneratedPlan] = useState(null);
   const [showResults, setShowResults] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [notificationCount, setNotificationCount] = useState(0);
 
   // Plate portions state - only 5 curry spots + 1 main
   const [portions, setPortions] = useState({
@@ -43,11 +48,11 @@ const PortionCalculator = () => {
   }, {});
 
   // Filter meals based on search term
-const filteredMeals = mealRecipes.filter(
-  (meal) =>
+  const filteredMeals = mealRecipes.filter((meal) =>
     meal.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    meal.category?.toLowerCase().includes(searchTerm.toLowerCase())
-);
+    (meal.category || "Other").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (meal.subcategory || "Other").toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   // Filter curries based on search term
   const filteredCurries = Object.keys(groupedCurries).reduce(
@@ -68,10 +73,13 @@ const filteredMeals = mealRecipes.filter(
 );
 
   useEffect(() => {
+    // Auto-detect user role from AuthContext
+    if (currentUser && currentUser.role) {
+      setUserRole(currentUser.role);
+      console.log("Auto-detected user role from AuthContext:", currentUser.role);
+    }
     fetchRecipes();
-    const savedUserType = localStorage.getItem("userType") || "restaurant";
-    setUserType(savedUserType);
-  }, []);
+  }, [currentUser]);
 
   const fetchRecipes = async () => {
     try {
@@ -97,6 +105,7 @@ const filteredMeals = mealRecipes.filter(
     );
     e.target.classList.add("dragging");
   };
+  
   const handlePlacedFoodDragEnd = (e, portionKey) => {
     const plate = document.querySelector(".plate");
     const plateRect = plate.getBoundingClientRect();
@@ -204,7 +213,7 @@ const filteredMeals = mealRecipes.filter(
           recipeId: curry._id,
         })),
         peopleCount: parseInt(peopleCount),
-        userType,
+        userType: userRole, // Use auto-detected role from AuthContext
       };
 
       const response = await axios.post(
@@ -217,6 +226,15 @@ const filteredMeals = mealRecipes.filter(
 
       setGeneratedPlan(response.data.portionPlan);
       setShowResults(true);
+      
+      // Show appropriate message based on inventory availability
+      if (response.data.hasInsufficientInventory) {
+        setError(
+          `Portion plan created but cannot be executed due to insufficient inventory. ${response.data.missingItems.length} items need restocking. Check notifications for details.`
+        );
+      } else {
+        setError(""); // Clear any previous errors
+      }
     } catch (error) {
       console.error("Error generating portion plan:", error);
       setError(
@@ -231,7 +249,7 @@ const filteredMeals = mealRecipes.filter(
 
     try {
       const token = localStorage.getItem("token");
-      await axios.post(
+      const response = await axios.post(
         `http://localhost:5000/api/portions/${generatedPlan._id}/execute`,
         {},
         {
@@ -240,16 +258,24 @@ const filteredMeals = mealRecipes.filter(
       );
 
       alert(
-        userType === "restaurant"
+        userRole === "restaurant"
           ? "Portion plan executed! Inventory has been deducted."
           : "Grocery list generated successfully!"
       );
+      setError(""); // Clear any previous errors
     } catch (error) {
       console.error("Error executing portion plan:", error);
-      alert(
-        "Failed to execute portion plan: " +
-          (error.response?.data?.message || error.message)
-      );
+      
+      if (error.response?.data?.unavailableItems) {
+        setError(
+          `Cannot execute portion plan. Insufficient inventory for ${error.response.data.unavailableItems.length} items. Please check inventory notifications.`
+        );
+      } else {
+        setError(
+          "Failed to execute portion plan: " +
+            (error.response?.data?.message || error.message)
+        );
+      }
     }
   };
 
@@ -270,7 +296,7 @@ const filteredMeals = mealRecipes.filter(
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `portion-plan-${generatedPlan.planId}.pdf`;
+      a.download = `${userRole === "restaurant" ? "portion-plan" : "grocery-list"}-${generatedPlan.planId}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -299,6 +325,17 @@ const filteredMeals = mealRecipes.filter(
       curry5: null,
     });
   };
+
+  // Go back to portion selection from results
+  const goBackToPortionSelection = () => {
+    setShowResults(false);
+    setGeneratedPlan(null);
+    setError("");
+  };
+
+  const handleNotificationUpdate = useCallback((count) => {
+    setNotificationCount(count);
+  }, []);
 
   const renderPortionArea = (portionKey, className, size = "small") => (
     <div
@@ -333,31 +370,24 @@ const filteredMeals = mealRecipes.filter(
     </div>
   );
 
-  if (loading) return <div className="loading">Loading recipes...</div>;
+ if (loading) return <LoadingScreen />;
 
   return (
     <div className="portion-calculator">
       <div className="calculator-header">
-        <h2>Portion Calculator</h2>
-         <div className="user-type-selector">
-          <label>
-            <input
-              type="radio"
-              value="restaurant"
-              checked={userType === 'restaurant'}
-              onChange={(e) => setUserType(e.target.value)}
-            />
-            Restaurant
-          </label>
-          <label>
-            <input
-              type="radio"
-              value="household"
-              checked={userType === 'household'}
-              onChange={(e) => setUserType(e.target.value)}
-            />
-            Household
-          </label>
+        <div className="header-content">
+          {showResults && (
+            <button className="back-arrow" onClick={goBackToPortionSelection} title="Go back to portion selection">
+              ←
+            </button>
+          )}
+          <h2>Portion Calculator 🍽️</h2>
+        </div>
+        <div className="header-actions">
+          <NotificationCenter 
+            module="portion_calculator" 
+            onNotificationUpdate={handleNotificationUpdate}
+          />
         </div>
       </div>
 
@@ -379,7 +409,6 @@ const filteredMeals = mealRecipes.filter(
 
           {/* Right Side - Recipe Selection */}
           <div className="recipe-selection">
-            {/* Main Meals Section */}
             {/* Search Bar */}
             <div className="search-container">
               <input
@@ -491,11 +520,7 @@ const filteredMeals = mealRecipes.filter(
   </div>
 </div>
 
-
-
-
-
-            {/* Plan Details - moved below */}
+            {/* Plan Details */}
             <div className="plan-details">
               <div className="form-group">
                 <label>Plan Name:</label>
@@ -528,7 +553,7 @@ const filteredMeals = mealRecipes.filter(
                 }
               >
                 Generate{" "}
-                {userType === "restaurant" ? "Portion Plan" : "Grocery List"}
+                {userRole === "restaurant" ? "Portion Plan" : "Grocery List"}
               </button>
             </div>
           </div>
@@ -540,10 +565,10 @@ const filteredMeals = mealRecipes.filter(
             <h3>{generatedPlan.name}</h3>
             <div className="results-meta">
               <span>Plan ID: {generatedPlan.planId}</span>
-              <span>People: {generatedPlan.peopleCount}</span>
-              <span>Total Cost: Rs{generatedPlan.totalCost?.toFixed(2)}</span>
+              <span>People : {generatedPlan.peopleCount}</span>
+              <span>Total Cost : Rs {generatedPlan.totalCost?.toFixed(2)}</span>
               <span>
-                Cost/Person: Rs{generatedPlan.costPerPerson?.toFixed(2)}
+                Cost / Person: Rs {generatedPlan.costPerPerson?.toFixed(2)}
               </span>
             </div>
           </div>
@@ -573,9 +598,9 @@ const filteredMeals = mealRecipes.filter(
               {generatedPlan.totalIngredients.map((ingredient, index) => (
                 <div key={index} className="table-row">
                   <span>{ingredient.itemName}</span>
-                  <span>{ingredient.totalQuantity.toFixed(2)}</span>
+                  <span>{ingredient.totalQuantity.toFixed(3)}</span>
                   <span>{ingredient.unit}</span>
-                  <span>Rs{ingredient.totalCost.toFixed(2)}</span>
+                  <span>Rs {ingredient.totalCost.toFixed(2)}</span>
                 </div>
               ))}
             </div>
@@ -583,13 +608,17 @@ const filteredMeals = mealRecipes.filter(
 
           <div className="action-buttons">
             <button className="pdf-btn" onClick={downloadPDF}>
-              Download PDF
+              Download {userRole === "restaurant" ? "Plan" : "Grocery List"} PDF
             </button>
-            <button className="execute-btn" onClick={executePortionPlan}>
-              {userType === "restaurant"
-                ? "Execute & Deduct Inventory"
-                : "Generate Grocery List"}
-            </button>
+            {userRole === "restaurant" ? (
+              <button className="execute-btn" onClick={executePortionPlan}>
+                Send to the Inventory
+              </button>
+            ) : (
+              <button className="execute-btn" onClick={executePortionPlan}>
+                Generate Grocery List
+              </button>
+            )}
             <button className="reset-btn" onClick={resetCalculator}>
               Create New Plan
             </button>

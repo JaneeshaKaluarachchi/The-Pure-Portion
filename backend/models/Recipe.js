@@ -63,7 +63,7 @@ const recipeSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['curry', 'rice', 'bread', 'soup', 'salad', 'dessert', 'beverage', 'appetizer', 'main-course', 'side-dish', 'breakfast', 'snack', 'other']
+    enum: ['curry', 'rice', 'Other', 'soup', 'salad', 'dessert', 'beverage', 'appetizer', 'main-course', 'side-dish', 'breakfast', 'snack', 'other']
   },
   subcategory: {
     type: String,

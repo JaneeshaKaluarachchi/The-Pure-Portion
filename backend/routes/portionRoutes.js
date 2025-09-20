@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const auth = require('../middleware/auth');
 const {
   createPortionPlan,
   getAllPortionPlans,
@@ -9,22 +10,22 @@ const {
   deletePortionPlan
 } = require('../controllers/portionController');
 
-// Create portion plan
-router.post('/', createPortionPlan);
+// Create portion plan (protected)
+router.post('/', auth, createPortionPlan);
 
-// Get all portion plans
-router.get('/', getAllPortionPlans);
+// Get all portion plans (protected)
+router.get('/', auth, getAllPortionPlans);
 
-// Get portion plan by ID
-router.get('/:id', getPortionPlanById);
+// Get portion plan by ID (protected)
+router.get('/:id', auth, getPortionPlanById);
 
-// Execute portion plan (deduct inventory for restaurants)
-router.post('/:id/execute', executePortionPlan);
+// Execute portion plan (deduct inventory for restaurants, protected)
+router.post('/:id/execute', auth, executePortionPlan);
 
-// Generate PDF
-router.get('/:id/pdf', generatePDF);
+// Generate PDF (protected)
+router.get('/:id/pdf', auth, generatePDF);
 
-// Delete portion plan
-router.delete('/:id', deletePortionPlan);
+// Delete portion plan (protected)
+router.delete('/:id', auth, deletePortionPlan);
 
 module.exports = router;

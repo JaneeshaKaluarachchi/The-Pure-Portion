@@ -12,7 +12,8 @@ const portionRoutes = require('./routes/portionRoutes');
 const leftoverRoutes = require('./routes/leftoverRoutes');
 const financeRoutes = require('./routes/financeRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
-const RestaurantSettings =  require('./routes/settingsRoutes')
+const RestaurantSettings =  require('./routes/settingsRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 
@@ -38,8 +39,7 @@ app.use('/api/portions', portionRoutes);
 app.use('/api/leftovers', leftoverRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/settings',RestaurantSettings);
-
-
+app.use('/api/notifications', notificationRoutes);
 
 // Basic route
 app.get('/', (req, res) => {

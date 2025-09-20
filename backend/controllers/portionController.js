@@ -2,8 +2,15 @@ const PortionPlan = require('../models/PortionPlan');
 const Recipe = require('../models/Recipe');
 const Inventory = require('../models/Inventory');
 const User = require('../models/User');
+const auth = require('../middleware/auth');
+const { createNotificationHelper } = require('../controllers/notificationController');
 const mongoose = require('mongoose');
 const PDFDocument = require('pdfkit');
+const fs = require('fs');
+const path = require('path');
+
+
+
 
 // Helper function to convert units
 const convertToStandardUnit = (quantity, fromUnit, toUnit) => {
@@ -170,6 +177,34 @@ const createPortionPlan = async (req, res) => {
     const totalIngredients = Array.from(ingredientMap.values());
     console.log('Total ingredients calculated:', totalIngredients);
 
+    // Check inventory availability and collect missing items
+    const missingItems = [];
+    
+    if (userType === 'restaurant' && restaurantId) {
+      for (const ingredient of totalIngredients) {
+        const inventoryItem = await Inventory.findOne({
+          _id: ingredient.inventoryItemId,
+          restaurantId: restaurantId
+        });
+        
+        if (!inventoryItem) {
+          missingItems.push({
+            itemName: ingredient.itemName,
+            required: ingredient.totalQuantity,
+            available: 0,
+            unit: ingredient.unit
+          });
+        } else if (inventoryItem.currentQuantity < ingredient.totalQuantity) {
+          missingItems.push({
+            itemName: ingredient.itemName,
+            required: ingredient.totalQuantity,
+            available: inventoryItem.currentQuantity,
+            unit: ingredient.unit
+          });
+        }
+      }
+    }
+
     // Create portion plan
     const portionPlan = new PortionPlan({
       restaurantId,
@@ -192,9 +227,45 @@ const createPortionPlan = async (req, res) => {
     await portionPlan.save();
     console.log('Portion plan saved with total cost:', portionPlan.totalCost);
 
+    // Create notifications based on inventory availability
+    if (restaurantId) {
+      if (missingItems.length > 0) {
+        // Create notification for insufficient inventory
+        await createNotificationHelper({
+          type: 'insufficient_inventory',
+          title: 'Insufficient Inventory for Portion Plan',
+          message: `Portion plan "${name}" cannot be executed due to insufficient inventory. ${missingItems.length} items need restocking.`,
+          fromModule: 'portion_calculator',
+          toModule: 'inventory_management',
+          restaurantId: restaurantId,
+          relatedData: {
+            portionPlanId: portionPlan._id,
+            missingItems: missingItems
+          },
+          priority: 'high'
+        });
+      } else {
+        // Create notification for successful portion plan creation
+        await createNotificationHelper({
+          type: 'portion_plan_created',
+          title: 'New Portion Plan Created',
+          message: `Portion plan "${name}" has been created and is ready for execution.`,
+          fromModule: 'portion_calculator',
+          toModule: 'inventory_management',
+          restaurantId: restaurantId,
+          relatedData: {
+            portionPlanId: portionPlan._id
+          },
+          priority: 'medium'
+        });
+      }
+    }
+
     res.status(201).json({
       message: 'Portion plan created successfully',
-      portionPlan
+      portionPlan,
+      hasInsufficientInventory: missingItems.length > 0,
+      missingItems: missingItems
     });
   } catch (error) {
     console.error('Create portion plan error:', error);
@@ -333,6 +404,29 @@ const executePortionPlan = async (req, res) => {
       const unavailableItems = inventoryChecks.filter(check => !check.available);
       if (unavailableItems.length > 0) {
         console.log('Insufficient inventory items:', unavailableItems);
+        
+        // Create notification for insufficient inventory during execution
+        if (restaurantId) {
+          await createNotificationHelper({
+            type: 'insufficient_inventory',
+            title: 'Cannot Execute Portion Plan - Insufficient Inventory',
+            message: `Portion plan "${plan.name}" cannot be executed due to insufficient inventory. Please restock the missing items.`,
+            fromModule: 'portion_calculator',
+            toModule: 'inventory_management',
+            restaurantId: restaurantId,
+            relatedData: {
+              portionPlanId: plan._id,
+              missingItems: unavailableItems.map(item => ({
+                itemName: item.item,
+                required: item.required,
+                available: item.current,
+                unit: item.unit
+              }))
+            },
+            priority: 'urgent'
+          });
+        }
+        
         return res.status(400).json({
           message: 'Insufficient inventory for the following items',
           unavailableItems
@@ -418,7 +512,6 @@ const executePortionPlan = async (req, res) => {
   }
 };
 
-// Generate PDF for portion plan
 const generatePDF = async (req, res) => {
   try {
     const plan = await PortionPlan.findById(req.params.id)
@@ -429,73 +522,146 @@ const generatePDF = async (req, res) => {
       return res.status(404).json({ message: 'Portion plan not found' });
     }
 
-    const doc = new PDFDocument();
-    
-    // Set response headers for PDF
+    const now = new Date();
+
+    // --- Get user from auth (like Inventory PDF) ---
+    const userId = req.user?.userId;
+    let user = null;
+    if (userId && userId !== 'admin') {
+      try {
+        user = await User.findById(userId).lean();
+      } catch (err) {
+        console.error('Error fetching user for PDF:', err);
+      }
+    }
+
+    // --- Restaurant details fallbacks (same style as inventory PDF) ---
+    const restaurantName =
+  user?.restaurantName || user?.businessName || user?.name || 'Ape Kama Restaurant';
+
+const restaurantAddress =
+  user?.restaurantAddress || user?.address || user?.location || '123 Main Street, Colombo, Sri Lanka';
+
+const restaurantPhone =
+  user?.restaurantPhone || user?.phone || user?.phoneNumber || user?.contactNumber || '+94 11 234 5678';
+
+console.log('PDF Restaurant Info:', {
+  name: restaurantName,
+  address: restaurantAddress,
+  phone: restaurantPhone
+});
+
+    // --- PDF setup ---
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="portion-plan-${plan.planId}.pdf"`);
-    
     doc.pipe(res);
 
-    // Add content to PDF
-    doc.fontSize(20).text('Portion Plan', 50, 50);
-    doc.fontSize(16).text(`Plan ID: ${plan.planId}`, 50, 80);
-    doc.fontSize(14).text(`Plan Name: ${plan.name}`, 50, 100);
-    doc.text(`People Count: ${plan.peopleCount}`, 50, 120);
-    doc.text(`Total Cost: Rs${plan.totalCost.toFixed(2)}`, 50, 140);
-    doc.text(`Cost Per Person: Rs${plan.costPerPerson.toFixed(2)}`, 50, 160);
+    // Logo
+    const logoPath = path.join('D:', 'Pure_Portions', 'frontend', 'src', 'styles', 'images', '1.png');
+    if (fs.existsSync(logoPath)) {
+      doc.image(logoPath, 40, 30, { width: 120 });
+    }
+
+    // Top-right restaurant info
+    const margin = 40;
+    const infoBoxWidth = 220;
+    const infoX = doc.page.width - margin - infoBoxWidth;
+    const infoY = 30;
+    doc.fontSize(12).font('Helvetica-Bold').text(restaurantName, infoX, infoY, { width: infoBoxWidth, align: 'right' });
+    doc.fontSize(10).font('Helvetica').text(restaurantAddress, infoX, infoY + 16, { width: infoBoxWidth, align: 'right' });
+    doc.text(`Phone: ${restaurantPhone}`, infoX, infoY + 34, { width: infoBoxWidth, align: 'right' });
+
+    // Title & date
+    const titleY = infoY + 120;
+    doc.fontSize(22).font('Helvetica-Bold').text('Portion Plan Report', 0, titleY, { align: 'center' });
+    doc.fontSize(8).font('Helvetica').text(`Generated on: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`, 0, titleY + 24, { align: 'center' });
+    doc.moveDown(2);
+
+    // Summary
+    doc.fontSize(12).font('Helvetica-Bold').fillColor('#2c3e50');
+    const summaryText = `Plan ID: ${plan.planId}   |   People: ${plan.peopleCount}   |   Total Cost: Rs${plan.totalCost.toFixed(2)}   |   Per Person: Rs${plan.costPerPerson.toFixed(2)}`;
+    doc.text(summaryText, { align: 'center' });
+    doc.moveDown(2);
+
+    // Meals Section
+    const startY = doc.y + 10;
+    const col1X = 60;
+    const col2X = 300;
 
     // Main Meal
-    doc.fontSize(16).text('Main Meal:', 50, 200);
-    doc.fontSize(12).text(`${plan.mainMeal.name}`, 70, 220);
+    doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50').text('Main Meal:', col1X, startY);
+    doc.fontSize(12).font('Helvetica').fillColor('black').text(plan.mainMeal?.name || 'N/A', col1X + 20, startY + 20);
 
     // Curries
-    doc.fontSize(16).text('Curries:', 50, 250);
-    let yPosition = 270;
-    plan.curries.forEach(curry => {
-      doc.fontSize(12).text(`• ${curry.name}`, 70, yPosition);
-      yPosition += 20;
+    doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50').text('Curries:', col2X, startY);
+    let curryY = startY + 20;
+    plan.curries.forEach((curry) => {
+      doc.fontSize(12).font('Helvetica').fillColor('black').text(`• ${curry?.name || 'N/A'}`, col2X + 20, curryY);
+      curryY += 16;
     });
 
-    // Ingredients List
-    yPosition += 20;
-    doc.fontSize(16).text('Ingredients List:', 50, yPosition);
-    yPosition += 30;
+    // Ingredients Table
+    doc.y = Math.max(startY + 60, curryY + 20);
+    doc.moveDown(2);
 
-    doc.fontSize(10);
-    doc.text('Item Name', 50, yPosition);
-    doc.text('Quantity', 200, yPosition);
-    doc.text('Unit', 280, yPosition);
-    doc.text('Total Cost', 350, yPosition);
-    yPosition += 20;
+    let y = doc.y;
+    const rowHeight = 18;
+    const pageBottom = doc.page.height - 50;
 
-    // Draw line
-    doc.moveTo(50, yPosition).lineTo(450, yPosition).stroke();
-    yPosition += 10;
+    const drawHeader = () => {
+      doc.fontSize(10).font('Helvetica-Bold').fillColor('white');
+      doc.rect(35, y - 3, 520, rowHeight).fill('#34495e');
+      doc.fillColor('white')
+        .text('Item', 40, y)
+        .text('Quantity', 200, y)
+        .text('Unit', 280, y)
+        .text('Cost (Rs)', 350, y, { width: 100, align: 'right' });
+      y += rowHeight;
+    };
 
-    plan.totalIngredients.forEach(ingredient => {
-      if (yPosition > 700) {
+    const addPageIfNeeded = (rowHeightNeeded) => {
+      if (y + rowHeightNeeded > pageBottom) {
         doc.addPage();
-        yPosition = 50;
+        y = 50;
+        drawHeader();
       }
-      
-      doc.text(ingredient.itemName, 50, yPosition);
-      doc.text(ingredient.totalQuantity.toFixed(2), 200, yPosition);
-      doc.text(ingredient.unit, 280, yPosition);
-      doc.text(`Rs${ingredient.totalCost.toFixed(2)}`, 350, yPosition);
-      yPosition += 15;
+    };
+
+    const drawRow = (ingredient, alternate = false) => {
+      const rowActualHeight = rowHeight;
+      addPageIfNeeded(rowActualHeight);
+
+      if (alternate) doc.rect(35, y - 3, 520, rowActualHeight).fill('#f4f4f4');
+
+      doc.fillColor('black').font('Helvetica')
+        .text(ingredient.itemName || '', 40, y)
+        .text((ingredient.totalQuantity || 0).toFixed(2), 200, y)
+        .text(ingredient.unit || '', 280, y)
+        .text(`Rs${(ingredient.totalCost || 0).toFixed(2)}`, 350, y, { width: 100, align: 'right' });
+
+      y += rowActualHeight;
+    };
+
+    drawHeader();
+    plan.totalIngredients.forEach((ingredient, index) => {
+      drawRow(ingredient, index % 2 === 0);
     });
 
-    // Add footer
-    doc.fontSize(8).text(`Generated on: ${new Date().toLocaleString()}`, 50, yPosition + 30);
-    doc.text(`Plan Type: ${plan.userType === 'restaurant' ? 'Restaurant Plan' : 'Grocery List'}`, 50, yPosition + 45);
+    // Signature
+    doc.moveDown(4);
+    const signatureY = Math.max(y + 40, doc.page.height - 120);
+    doc.fontSize(12).font('Helvetica').fillColor('black');
+    doc.text("______________________", 60, signatureY);
+    doc.text("Manager's Signature", 80, signatureY + 15);
 
     doc.end();
   } catch (error) {
     console.error('Generate PDF error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Failed to generate PDF', error: error.message });
   }
 };
+
 
 // Delete portion plan
 const deletePortionPlan = async (req, res) => {

@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import '../styles/LeftoverManagement.css';
+import ChatAssistant from "./ChatAssistant";
+import { useNavigate } from "react-router-dom";
+import { Rnd } from "react-rnd";
+import LoadingScreen from "./LoadingScreen";
 
 const LeftoverManagement = () => {
   const [activeTab, setActiveTab] = useState('browse');
@@ -19,7 +23,8 @@ const LeftoverManagement = () => {
     location: '',
     radius: 10
   });
-
+  const navigate = useNavigate(); 
+  const [showChatbot, setShowChatbot] = useState(false);
   // Donation form state
   const [donationForm, setDonationForm] = useState({
     name: '',
@@ -389,8 +394,7 @@ const handleHelpRequest = async (requestId) => {
     }
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
-
+ if (loading) return <LoadingScreen />;
   return (
     <div className="leftover-management">
       <div className="leftover-header">
@@ -408,9 +412,15 @@ const handleHelpRequest = async (requestId) => {
           >
             + Donate Food
           </button>
+          <button 
+            className="chatbot-btn"
+            onClick={() => setShowChatbot(true)}   // instead of navigate("/chatbot")
+          >
+          🤖 AI Chatbot
+          </button>
+
         </div>
       </div>
-
       {error && <div className="error-message">{error}</div>}
 
       <div className="tab-navigation">
@@ -439,8 +449,22 @@ const handleHelpRequest = async (requestId) => {
           >
             ⚙️ Admin Panel
           </button>
+
         )}
       </div>
+
+
+      {showChatbot && (
+      <div className="modal-overlay">
+        <div className="modal chatbot-modal">
+          <div className="modal-header">
+            <h3>AI Chatbot</h3>
+            <button onClick={() => setShowChatbot(false)}>×</button>
+          </div>
+          <ChatAssistant /> {/* reuse your chatbot component */}
+        </div>
+      </div>
+      )}
 
       {/* Browse Donations Tab */}
       {activeTab === 'browse' && (
@@ -711,7 +735,7 @@ const handleHelpRequest = async (requestId) => {
           </div>
         </div>
       )}
-
+    
       {/* Donate Modal */}
       {showDonateModal && (
         <div className="modal-overlay">
@@ -1016,6 +1040,7 @@ const handleHelpRequest = async (requestId) => {
         </div>
       )}
     </div>
+    
   );
 };
 

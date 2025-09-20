@@ -9,19 +9,26 @@ import HouseholdDashboard from './pages/HouseholdDashboard';
 import RestaurantDashboard from './pages/RestaurantDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
+import LeftoverManagement from './components/LeftoverManagement';   // ✅ new
+import ChatAssistant from './components/ChatAssistant';             // ✅ new
 import './styles/App.css';
 
-function App() {
+const App = () => {
   return (
     <AuthProvider>
       <Router>
         <div className="App">
           <Routes>
+            {/* Default redirect */}
             <Route path="/" element={<Navigate to="/role-selection" />} />
+
+            {/* Public routes */}
             <Route path="/role-selection" element={<RoleSelection />} />
             <Route path="/register/household" element={<HouseholdRegister />} />
             <Route path="/register/restaurant" element={<RestaurantRegister />} />
             <Route path="/login" element={<Login />} />
+
+            {/* Protected dashboards */}
             <Route 
               path="/household-dashboard" 
               element={
@@ -46,11 +53,28 @@ function App() {
                 </ProtectedRoute>
               } 
             />
-          </Routes>
+
+            {/* New Features */}
+            <Route 
+              path="/leftovers" 
+              element={
+                <ProtectedRoute allowedRoles={['household', 'restaurant', 'admin']}>
+                  <LeftoverManagement />
+                </ProtectedRoute>
+              } 
+            />
+            <Route
+             path="/chatbot" 
+             element={
+              <ProtectedRoute allowedRoles={['household', 'restaurant', 'admin']}>
+                  <ChatAssistant />
+              </ProtectedRoute> }
+              />
+            </Routes>
         </div>
       </Router>
     </AuthProvider>
   );
-}
+};
 
 export default App;

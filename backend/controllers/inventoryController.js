@@ -1,4 +1,5 @@
 const Inventory = require('../models/Inventory');
+const { createNotificationHelper } = require('../controllers/notificationController');
 const mongoose = require('mongoose');
 
 // Add inventory item
@@ -151,6 +152,7 @@ const updateStock = async (req, res) => {
       return res.status(404).json({ message: 'Inventory item not found' });
     }
 
+    const previousQuantity = item.currentQuantity;
     let newQuantity;
     if (operation === 'add') {
       newQuantity = item.currentQuantity + Number(quantity);
@@ -168,6 +170,28 @@ const updateStock = async (req, res) => {
       },
       { new: true, runValidators: true }
     );
+
+    // Check if this is a restock operation that might resolve pending portion plans
+    if (operation === 'add' && previousQuantity <= item.minQuantity && newQuantity > item.minQuantity) {
+      // Create notification for successful restock
+      await createNotificationHelper({
+        type: 'inventory_restocked',
+        title: 'Inventory Item Restocked',
+        message: `${item.name} has been restocked. New quantity: ${newQuantity} ${item.unit}`,
+        fromModule: 'inventory_management',
+        toModule: 'portion_calculator',
+        restaurantId: restaurantId,
+        relatedData: {
+          restockedItems: [{
+            itemName: item.name,
+            itemId: item.itemId,
+            newQuantity: newQuantity,
+            unit: item.unit
+          }]
+        },
+        priority: 'medium'
+      });
+    }
 
     res.json({
       message: `Stock ${operation}ed successfully`,
@@ -258,7 +282,6 @@ const getInventoryStats = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
 
 // Get low stock alerts
 const getLowStockAlerts = async (req, res) => {

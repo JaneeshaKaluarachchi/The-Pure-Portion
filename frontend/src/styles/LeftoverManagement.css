@@ -25,7 +25,9 @@
   gap: 10px;
 }
 
-.donate-btn, .request-btn {
+.donate-btn,
+.request-btn,
+.chatbot-btn {
   background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
   color: white;
   border: none;
@@ -44,7 +46,13 @@
   background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
 }
 
-.donate-btn:hover, .request-btn:hover {
+.chatbot-btn {
+  background: linear-gradient(135deg, #db3434 0%, #b92929 100%);
+}
+
+.donate-btn:hover,
+.request-btn:hover,
+.chatbot-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
@@ -708,91 +716,85 @@
   box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
 }
 
-.loading {
-  text-align: center;
-  padding: 40px;
-  color: #7f8c8d;
-  font-size: 16px;
+/* Chatbot Floating Styles */
+.chatbot-floating {
+  z-index: 2000;
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  position: fixed;
+  bottom: 90px;
+  right: 20px;
+  width: 380px;
+  height: 500px;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-  .leftover-management {
-    padding: 15px;
-  }
-
-  .leftover-header {
-    flex-direction: column;
-    align-items: stretch;
-    text-align: center;
-  }
-
-  .header-actions {
-    justify-content: center;
-  }
-
-  .tab-navigation {
-    justify-content: center;
-  }
-
-  .filters {
-    flex-direction: column;
-  }
-
-  .leftovers-grid,
-  .requests-grid,
-  .donations-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .form-row {
-    grid-template-columns: 1fr;
-  }
-
-  .requested-item-form {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .pending-leftover-card,
-  .pending-request-card {
-    flex-direction: column;
-    gap: 15px;
-  }
-
-  .admin-actions {
-    flex-direction: row;
-    min-width: auto;
-  }
-
-  .modal {
-    margin: 10px;
-    max-height: 95vh;
-  }
+.chatbot-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
-@media (max-width: 480px) {
-  .leftover-header h2 {
-    font-size: 1.5rem;
-  }
+.chatbot-header {
+  background: linear-gradient(135deg, #2c3e50, #34495e);
+  color: #fff;
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: move;
+}
 
-  .donate-btn,
-  .request-btn {
-    padding: 10px 15px;
-    font-size: 13px;
-  }
+.chatbot-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
 
-  .tab-btn {
-    padding: 10px 15px;
-    font-size: 13px;
-  }
+.chatbot-header button {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
 
-  .modal-header {
-    padding: 15px 20px;
-  }
+.chatbot-header button:hover {
+  transform: scale(1.2);
+}
 
-  .donation-form,
-  .request-form {
-    padding: 20px;
-  }
+.chat-iframe {
+  flex: 1;
+  border: none;
+}
+
+/* Floating Bubble */
+.chatbot-bubble {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: linear-gradient(135deg, #db3434, #b92929);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 28px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  z-index: 2100;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chatbot-bubble:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.3);
 }

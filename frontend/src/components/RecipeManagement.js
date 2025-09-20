@@ -28,7 +28,7 @@ const RecipeManagement = () => {
   // Meal categories
   const mealCategories = [
     "rice",
-    "bread",
+    "Other",
     "soup",
     "salad",
     "dessert",
