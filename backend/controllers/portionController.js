@@ -552,42 +552,66 @@ console.log('PDF Restaurant Info:', {
 });
 
     // --- PDF setup ---
-    const doc = new PDFDocument({ margin: 40, size: 'A4' });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="portion-plan-${plan.planId}.pdf"`);
-    doc.pipe(res);
+// --- PDF setup ---
+const doc = new PDFDocument({ margin: 40, size: 'A4' });
+res.setHeader('Content-Type', 'application/pdf');
+res.setHeader('Content-Disposition', `attachment; filename="portion-plan-${plan.planId}.pdf"`);
+doc.pipe(res);
 
-    // Logo
-    const logoPath = path.join('D:', 'Pure_Portions', 'frontend', 'src', 'styles', 'images', '1.png');
-    if (fs.existsSync(logoPath)) {
-      doc.image(logoPath, 40, 30, { width: 120 });
-    }
+// --- Header: Logo left, everything else right ---
+const margin = 40;
+const pageWidth = doc.page.width;
+const headerY = 30;
 
-    // Top-right restaurant info
-    const margin = 40;
-    const infoBoxWidth = 220;
-    const infoX = doc.page.width - margin - infoBoxWidth;
-    const infoY = 30;
-    doc.fontSize(12).font('Helvetica-Bold').text(restaurantName, infoX, infoY, { width: infoBoxWidth, align: 'right' });
-    doc.fontSize(10).font('Helvetica').text(restaurantAddress, infoX, infoY + 16, { width: infoBoxWidth, align: 'right' });
-    doc.text(`Phone: ${restaurantPhone}`, infoX, infoY + 34, { width: infoBoxWidth, align: 'right' });
+// Logo (left)
+const logoPath = path.join('D:', 'Pure_Portions', 'frontend', 'src', 'styles', 'images', '1.png');
+if (fs.existsSync(logoPath)) {
+  doc.image(logoPath, margin, headerY, { width: 120 });
+}
 
-    // Title & date
-    const titleY = infoY + 120;
-    doc.fontSize(22).font('Helvetica-Bold').text('Portion Plan Report', 0, titleY, { align: 'center' });
-    doc.fontSize(8).font('Helvetica').text(`Generated on: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`, 0, titleY + 24, { align: 'center' });
-    doc.moveDown(2);
+// Right-aligned block start X
+const rightBlockX = pageWidth - margin - 220; // 220 = block width
+let rightY = headerY;
 
-    // Summary
-    doc.fontSize(12).font('Helvetica-Bold').fillColor('#2c3e50');
-    const summaryText = `Plan ID: ${plan.planId}   |   People: ${plan.peopleCount}   |   Total Cost: Rs${plan.totalCost.toFixed(2)}   |   Per Person: Rs${plan.costPerPerson.toFixed(2)}`;
-    doc.text(summaryText, { align: 'center' });
-    doc.moveDown(2);
+// Title
+doc.fontSize(22).font('Helvetica-Bold').text('Portion Plan Report', rightBlockX, rightY, { width: 220, align: 'right' });
+rightY += 28;
+
+// Generated date
+
+doc.fontSize(8).font('Helvetica').text(`Generated on: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`, rightBlockX, rightY, { width: 220, align: 'right' });
+rightY += 16;
+
+// Restaurant Info
+doc.fontSize(12).font('Helvetica-Bold').text(restaurantName, rightBlockX, rightY, { width: 220, align: 'right' });
+rightY += 16;
+doc.fontSize(10).font('Helvetica').text(restaurantAddress, rightBlockX, rightY, { width: 220, align: 'right' });
+rightY += 16;
+doc.text(`Phone: ${restaurantPhone}`, rightBlockX, rightY, { width: 220, align: 'right' });
+rightY += 20;
+
+  // --- Summary below header, right-aligned ---
+// --- Summary below header, centered ---
+const summaryText = `Plan ID: ${plan.planId}   |   People: ${plan.peopleCount}   |   Total Cost: Rs${plan.totalCost.toFixed(2)}   |   Per Person: Rs${plan.costPerPerson.toFixed(2)}`;
+
+doc.moveDown(2); // space after header
+doc.fontSize(12).font('Helvetica-Bold').fillColor('#2c3e50');
+
+// Use page width and margin to truly center
+
+const textWidth = doc.widthOfString(summaryText);
+const xCenter = (pageWidth - textWidth) / 2;
+
+doc.text(summaryText, xCenter, doc.y); // centered manually
+doc.moveDown(2);
+
+
+
 
     // Meals Section
-    const startY = doc.y + 10;
+    const startY = doc.y + 4;
     const col1X = 60;
-    const col2X = 300;
+    const col2X = 200;
 
     // Main Meal
     doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50').text('Main Meal:', col1X, startY);
@@ -634,9 +658,9 @@ console.log('PDF Restaurant Info:', {
 
       if (alternate) doc.rect(35, y - 3, 520, rowActualHeight).fill('#f4f4f4');
 
-      doc.fillColor('black').font('Helvetica')
+      doc.fillColor('black').font('Helvetica')  
         .text(ingredient.itemName || '', 40, y)
-        .text((ingredient.totalQuantity || 0).toFixed(2), 200, y)
+        .text((ingredient.totalQuantity || 0).toFixed(3), 200, y)
         .text(ingredient.unit || '', 280, y)
         .text(`Rs${(ingredient.totalCost || 0).toFixed(2)}`, 350, y, { width: 100, align: 'right' });
 

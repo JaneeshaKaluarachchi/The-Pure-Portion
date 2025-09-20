@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from "../contexts/AuthContext";
 import LoadingScreen from "./LoadingScreen";
 import NotificationCenter from "./NotificationCenter";
 import "../styles/PortionCalculator.css";
@@ -48,35 +48,43 @@ const PortionCalculator = () => {
   }, {});
 
   // Filter meals based on search term
-  const filteredMeals = mealRecipes.filter((meal) =>
-    meal.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (meal.category || "Other").toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (meal.subcategory || "Other").toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredMeals = mealRecipes.filter(
+    (meal) =>
+      meal.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (meal.category || "Other")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      (meal.subcategory || "Other")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
   );
 
   // Filter curries based on search term
   const filteredCurries = Object.keys(groupedCurries).reduce(
-  (filtered, category) => {
-    const filteredRecipes = groupedCurries[category].filter(
-      (curry) =>
-        curry.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (curry.subcategory || "Other")
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase())
-    );
-    if (filteredRecipes.length > 0) {
-      filtered[category] = filteredRecipes;
-    }
-    return filtered;
-  },
-  {}
-);
+    (filtered, category) => {
+      const filteredRecipes = groupedCurries[category].filter(
+        (curry) =>
+          curry.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (curry.subcategory || "Other")
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase())
+      );
+      if (filteredRecipes.length > 0) {
+        filtered[category] = filteredRecipes;
+      }
+      return filtered;
+    },
+    {}
+  );
 
   useEffect(() => {
     // Auto-detect user role from AuthContext
     if (currentUser && currentUser.role) {
       setUserRole(currentUser.role);
-      console.log("Auto-detected user role from AuthContext:", currentUser.role);
+      console.log(
+        "Auto-detected user role from AuthContext:",
+        currentUser.role
+      );
     }
     fetchRecipes();
   }, [currentUser]);
@@ -105,7 +113,7 @@ const PortionCalculator = () => {
     );
     e.target.classList.add("dragging");
   };
-  
+
   const handlePlacedFoodDragEnd = (e, portionKey) => {
     const plate = document.querySelector(".plate");
     const plateRect = plate.getBoundingClientRect();
@@ -226,7 +234,7 @@ const PortionCalculator = () => {
 
       setGeneratedPlan(response.data.portionPlan);
       setShowResults(true);
-      
+
       // Show appropriate message based on inventory availability
       if (response.data.hasInsufficientInventory) {
         setError(
@@ -265,7 +273,7 @@ const PortionCalculator = () => {
       setError(""); // Clear any previous errors
     } catch (error) {
       console.error("Error executing portion plan:", error);
-      
+
       if (error.response?.data?.unavailableItems) {
         setError(
           `Cannot execute portion plan. Insufficient inventory for ${error.response.data.unavailableItems.length} items. Please check inventory notifications.`
@@ -296,7 +304,9 @@ const PortionCalculator = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${userRole === "restaurant" ? "portion-plan" : "grocery-list"}-${generatedPlan.planId}.pdf`;
+      a.download = `${
+        userRole === "restaurant" ? "portion-plan" : "grocery-list"
+      }-${generatedPlan.planId}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -370,22 +380,61 @@ const PortionCalculator = () => {
     </div>
   );
 
- if (loading) return <LoadingScreen />;
+
+  // Add these states
+const [planNameError, setPlanNameError] = useState("");
+const [peopleCountError, setPeopleCountError] = useState("");
+
+// Validation handlers
+const handlePlanNameChange = (e) => {
+  const value = e.target.value;
+  setPlanName(value);
+
+  // Allow letters, numbers, spaces, parentheses ( and )
+  const regex = /^[a-zA-Z\s()]*$/;
+
+  if (!regex.test(value)) {
+    setPlanNameError("Plan name can only contain letters, spaces, and ()");
+  } else if (value.trim() === "") {
+    setPlanNameError("Plan name cannot be empty");
+  } else {
+    setPlanNameError("");
+  }
+};
+
+const handlePeopleCountChange = (e) => {
+  const value = parseInt(e.target.value, 10);
+  setPeopleCount(value);
+
+  if (isNaN(value) || value < 1) {
+    setPeopleCountError("Number of people must be at least 1");
+  } else if (value > 20000) {
+    setPeopleCountError("Number of people cannot exceed 20,000");
+  } else {
+    setPeopleCountError("");
+  }
+};
+
+  if (loading) return <LoadingScreen />;
 
   return (
     <div className="portion-calculator">
       <div className="calculator-header">
         <div className="header-content">
           {showResults && (
-            <button className="back-arrow" onClick={goBackToPortionSelection} title="Go back to portion selection">
+            <button
+              className="back-arrow"
+              onClick={goBackToPortionSelection}
+              title="Go back to portion selection"
+            >
               ←
             </button>
           )}
           <h2>Portion Calculator 🍽️</h2>
         </div>
         <div className="header-actions">
-          <NotificationCenter 
-            module="portion_calculator" 
+          <NotificationCenter
+            module="portion_calculator"
             onNotificationUpdate={handleNotificationUpdate}
           />
         </div>
@@ -419,129 +468,142 @@ const PortionCalculator = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-           
-{/* Main Meals Section */}
-<div className="recipe-section">
-  <h3>Main Meals 🍽️</h3>
-  <div className="categories">
-    {Object.entries(
-      filteredMeals.reduce((groups, meal) => {
-        const category = meal.category || "Other";
-        if (!groups[category]) groups[category] = [];
-        groups[category].push(meal);
-        return groups;
-      }, {})
-    )
-      // Sort categories: Rice first, then alphabetically
-      .sort(([catA], [catB]) => {
-        if (catA.toLowerCase() === "rice") return -1;
-        if (catB.toLowerCase() === "rice") return 1;
-        return catA.localeCompare(catB);
-      })
-      .map(([category, meals]) => (
-        <div key={category} className="meal-category">
-          <h4 className="category-title">
-            {category.charAt(0).toUpperCase() + category.slice(1)}
-          </h4>
-          <div className="category-scroll">
-            {meals.map((recipe) => (
-              <div
-                key={recipe._id}
-                className="recipe-item"
-                draggable
-                onDragStart={(e) => handleDragStart(e, recipe, "meal")}
-                onDragEnd={handleDragEnd}
-              >
-                {recipe.imageUrl && (
-                  <img
-                    src={recipe.imageUrl}
-                    alt={recipe.name}
-                    className="recipe-thumb"
-                  />
-                )}
-                <div className="recipe-info">
-                  <h4>{recipe.name}</h4>
-                  <span>
-                    Rs{recipe.costPerServing?.toFixed(2) || "0.00"}/serving
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-  </div>
-</div>
 
-{/* Curries Section */}
-<div className="recipe-section">
-  <h3>Curries 🍛 (Max 5)</h3>
-  <div className="categories">
-    {Object.entries(filteredCurries)
-      // Sort categories: Rice first, then alphabetically
-      .sort(([catA], [catB]) => {
-        if (catA.toLowerCase() === "rice") return -1;
-        if (catB.toLowerCase() === "rice") return 1;
-        return catA.localeCompare(catB);
-      })
-      .map(([category, curries]) => (
-        <div key={category} className="curry-category">
-          <h4 className="category-title">
-            {category.charAt(0).toUpperCase() + category.slice(1)}
-          </h4>
-          <div className="category-scroll">
-            {curries.map((recipe) => (
-              <div
-                key={recipe._id}
-                className="recipe-item"
-                draggable
-                onDragStart={(e) => handleDragStart(e, recipe, "curry")}
-                onDragEnd={handleDragEnd}
-              >
-                {recipe.imageUrl && (
-                  <img
-                    src={recipe.imageUrl}
-                    alt={recipe.name}
-                    className="recipe-thumb"
-                  />
-                )}
-                <div className="recipe-info">
-                  <h4>{recipe.name}</h4>
-                  <p>{recipe.subcategory} curry</p>
-                  <span>
-                    Rs{recipe.costPerServing?.toFixed(2) || "0.00"}/serving
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-  </div>
-</div>
-
-            {/* Plan Details */}
-            <div className="plan-details">
-              <div className="form-group">
-                <label>Plan Name:</label>
-                <input
-                  type="text"
-                  value={planName}
-                  onChange={(e) => setPlanName(e.target.value)}
-                  placeholder="Enter plan name"
-                />
-              </div>
-              <div className="form-group">
-                <label>Number of People:</label>
-                <input
-                  type="number"
-                  value={peopleCount}
-                  onChange={(e) => setPeopleCount(e.target.value)}
-                  min="1"
-                  max="100"
-                />
+            {/* Main Meals Section */}
+            <div className="recipe-section">
+              <h3>Main Meals 🍽️</h3>
+              <div className="categories">
+                {Object.entries(
+                  filteredMeals.reduce((groups, meal) => {
+                    const category = meal.category || "Other";
+                    if (!groups[category]) groups[category] = [];
+                    groups[category].push(meal);
+                    return groups;
+                  }, {})
+                )
+                  // Sort categories: Rice first, then alphabetically
+                  .sort(([catA], [catB]) => {
+                    if (catA.toLowerCase() === "rice") return -1;
+                    if (catB.toLowerCase() === "rice") return 1;
+                    return catA.localeCompare(catB);
+                  })
+                  .map(([category, meals]) => (
+                    <div key={category} className="meal-category">
+                      <h4 className="category-title">
+                        {category.charAt(0).toUpperCase() + category.slice(1)}
+                      </h4>
+                      <div className="category-scroll">
+                        {meals.map((recipe) => (
+                          <div
+                            key={recipe._id}
+                            className="recipe-item"
+                            draggable
+                            onDragStart={(e) =>
+                              handleDragStart(e, recipe, "meal")
+                            }
+                            onDragEnd={handleDragEnd}
+                          >
+                            {recipe.imageUrl && (
+                              <img
+                                src={recipe.imageUrl}
+                                alt={recipe.name}
+                                className="recipe-thumb"
+                              />
+                            )}
+                            <div className="recipe-info">
+                              <h4>{recipe.name}</h4>
+                              <span>
+                                Rs{recipe.costPerServing?.toFixed(2) || "0.00"}
+                                /serving
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
               </div>
             </div>
+
+            {/* Curries Section */}
+            <div className="recipe-section">
+              <h3>Curries 🍛 (Max 5)</h3>
+              <div className="categories">
+                {Object.entries(filteredCurries)
+                  // Sort categories: Rice first, then alphabetically
+                  .sort(([catA], [catB]) => {
+                    if (catA.toLowerCase() === "rice") return -1;
+                    if (catB.toLowerCase() === "rice") return 1;
+                    return catA.localeCompare(catB);
+                  })
+                  .map(([category, curries]) => (
+                    <div key={category} className="curry-category">
+                      <h4 className="category-title">
+                        {category.charAt(0).toUpperCase() + category.slice(1)}
+                      </h4>
+                      <div className="category-scroll">
+                        {curries.map((recipe) => (
+                          <div
+                            key={recipe._id}
+                            className="recipe-item"
+                            draggable
+                            onDragStart={(e) =>
+                              handleDragStart(e, recipe, "curry")
+                            }
+                            onDragEnd={handleDragEnd}
+                          >
+                            {recipe.imageUrl && (
+                              <img
+                                src={recipe.imageUrl}
+                                alt={recipe.name}
+                                className="recipe-thumb"
+                              />
+                            )}
+                            <div className="recipe-info">
+                              <h4>{recipe.name}</h4>
+                              <p>{recipe.subcategory} curry</p>
+                              <span>
+                                Rs{recipe.costPerServing?.toFixed(2) || "0.00"}
+                                /serving
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* Plan Details */}
+            {/* Plan Details */}
+<div className="plan-details">
+  <div className="form-group">
+    <label>Plan Name:</label>
+    <input
+      type="text"
+      value={planName}
+      onChange={handlePlanNameChange}
+      placeholder="Enter plan name"
+      className={planNameError ? "invalid-input" : ""}
+    />
+    {planNameError && <p className="error-text">{planNameError}</p>}
+  </div>
+  
+  <div className="form-group">
+    <label>Number of People:</label>
+    <input
+      type="number"
+      value={peopleCount}
+      onChange={handlePeopleCountChange}
+      min="1"
+      max="20000"
+      className={peopleCountError ? "invalid-input" : ""}
+    />
+    {peopleCountError && <p className="error-text">{peopleCountError}</p>}
+  </div>
+</div>
+
 
             {/* Generate Button */}
             <div className="action-buttons">

@@ -756,6 +756,17 @@
   font-weight: 600;
 }
 
+.invalid-input {
+  border: 1px solid red;
+  background-color: #ffe6e6;
+}
+
+.error-text {
+  color: red;
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
 .error-message {
   background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
   color: #ffffff;
