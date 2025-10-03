@@ -14,7 +14,6 @@ const RestaurantDashboard = () => {
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'profile', label: 'Profile', icon: '👤' },
     { id: 'staff-management', label: 'Staff Management', icon: '👥' },
     { id: 'recipe-management', label: 'Recipe Management', icon: '🍛' },
     { id: 'portion-calculation', label: 'Portion Calculator', icon: '🍽️' },

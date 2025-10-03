@@ -12,6 +12,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LeftoverManagement from './components/LeftoverManagement';   // ✅ new
 import ChatAssistant from './components/ChatAssistant';             // ✅ new
 import './styles/App.css';
+import Onboarding from './components/Onboard';
 
 const App = () => {
   return (
@@ -20,7 +21,7 @@ const App = () => {
         <div className="App">
           <Routes>
             {/* Default redirect */}
-            <Route path="/" element={<Navigate to="/role-selection" />} />
+            <Route path="/" element={<Onboarding />} />
 
             {/* Public routes */}
             <Route path="/role-selection" element={<RoleSelection />} />

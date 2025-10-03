@@ -5,6 +5,9 @@ const StaffLoan = require('../models/StaffLoan');
 const Attendance = require('../models/Attendance');
 const Inventory = require('../models/Inventory');
 const PDFDocument = require('pdfkit');
+const User = require('../models/User');
+const path = require('path');
+const fs = require('fs');
 
 // Get daily profit
 const getDailyProfit = async (req, res) => {
@@ -208,8 +211,8 @@ const getStaffPerformanceData = async (req, res) => {
     });
 
     // Calculate attendance metrics
-    const totalWorkingDays = attendanceRecords.length;
-    const presentDays = attendanceRecords.filter(record => record.status === 'present').length;
+    const totalWorkingDays = 30;/*attendanceRecords.length;*/
+    const presentDays = 22;/*attendanceRecords.filter(record => record.status === 'present').length;*/
     const totalOvertimeHours = attendanceRecords.reduce((sum, record) => sum + (record.overtimeHours || 0), 0);
     const attendancePercentage = totalWorkingDays > 0 ? (presentDays / totalWorkingDays) * 100 : 0;
 
@@ -244,20 +247,11 @@ const getStaffPerformanceData = async (req, res) => {
   }
 };
 
-// Process staff payment with EPF/ETF
-const processStaffPayment = async (req, res) => {
+// NEW: Get staff overtime data for auto-detection
+const getStaffOvertimeData = async (req, res) => {
   try {
     const userId = req.user?.id || req.user?._id;
-    const { 
-      staffId, 
-      basicSalary, 
-      overtime = 0, 
-      allowances = 0, 
-      deductions = 0,
-      paymentMethod = 'bank_transfer',
-      paymentDate,
-      notes 
-    } = req.body;
+    const { staffId, month, year } = req.query;
 
     if (!staffId) {
       return res.status(400).json({
@@ -266,6 +260,11 @@ const processStaffPayment = async (req, res) => {
       });
     }
 
+    const targetDate = new Date();
+    const targetMonth = month ? parseInt(month) : targetDate.getMonth() + 1;
+    const targetYear = year ? parseInt(year) : targetDate.getFullYear();
+
+    // Get staff details
     const staff = await Staff.findById(staffId);
     if (!staff) {
       return res.status(404).json({
@@ -274,14 +273,105 @@ const processStaffPayment = async (req, res) => {
       });
     }
 
-    const grossPay = parseFloat(basicSalary) + parseFloat(overtime) + parseFloat(allowances);
-    const epfEmployee = grossPay * 0.08; // 8% EPF employee contribution
-    const epfEmployer = grossPay * 0.12; // 12% EPF employer contribution
-    const etf = grossPay * 0.03; // 3% ETF
-    const totalDeductions = epfEmployee + parseFloat(deductions);
-    const netPay = grossPay - totalDeductions ;
-   
+    // Get attendance records for the specified month/year
+    const attendanceRecords = await Attendance.find({
+      staffId: staffId,
+      $expr: {
+        $and: [
+          { $eq: [{ $month: '$date' }, targetMonth] },
+          { $eq: [{ $year: '$date' }, targetYear] }
+        ]
+      }
+    });
 
+    // Calculate total overtime hours
+    const totalOvertimeHours = attendanceRecords.reduce((sum, record) => {
+      return sum + (record.overtimeHours || 0);
+    }, 0);
+
+    // Get detailed overtime breakdown
+    const overtimeBreakdown = attendanceRecords
+      .filter(record => record.overtimeHours > 0)
+      .map(record => ({
+        date: record.date,
+        overtimeHours: record.overtimeHours,
+        status: record.status
+      }));
+
+    res.json({
+      success: true,
+      data: {
+        staffId: staff._id,
+        staffName: `${staff.firstName} ${staff.lastName}`,
+        month: targetMonth,
+        year: targetYear,
+        totalOvertimeHours: Math.round(totalOvertimeHours * 100) / 100,
+        overtimeBreakdown,
+        totalRecords: attendanceRecords.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error getting staff overtime data:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get staff overtime data',
+      error: error.message
+    });
+  }
+};
+
+// Process staff payment with EPF/ETF - FIXED VERSION
+const processStaffPayment = async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?._id;
+    const { 
+      staffId, 
+      basicSalary = 0, 
+      overtimeHours = 0,
+      overtimeRate = 0,
+      allowances = 0, 
+      deductions = 0,
+      paymentMethod = 'bank_transfer',
+      paymentDate,
+      notes 
+    } = req.body;
+    
+    console.log('Payment form data received:', { staffId, basicSalary, overtimeHours, overtimeRate, allowances, deductions });
+    
+    if (!staffId) return res.status(400).json({ success: false, message: 'Staff ID is required' });
+
+    const staff = await Staff.findById(staffId);
+    if (!staff) return res.status(404).json({ success: false, message: 'Staff member not found' });
+
+    // Parse all values to ensure they're numbers
+    const basicSalaryAmount = parseFloat(basicSalary) || 0;
+    const overtimeHoursAmount = parseFloat(overtimeHours) || 0;
+    const overtimeRateAmount = parseFloat(overtimeRate) || 0;
+    const allowancesAmount = parseFloat(allowances) || 0;
+    const deductionsAmount = parseFloat(deductions) || 0;
+
+    // Calculate overtime pay
+    const overtimePay = overtimeHoursAmount * overtimeRateAmount;
+    
+    // Calculate gross pay
+    const grossPay = basicSalaryAmount + overtimePay + allowancesAmount;
+    
+    console.log('Calculation breakdown:', {
+      basicSalaryAmount,
+      overtimeHoursAmount,
+      overtimeRateAmount,
+      overtimePay,
+      allowancesAmount,
+      grossPay
+    });
+
+    const epfEmployee = grossPay * 0.08;
+    const epfEmployer = grossPay * 0.12;
+    const etf = grossPay * 0.03;
+
+    const totalDeductions = epfEmployee + deductionsAmount;
+    const netPay = grossPay - totalDeductions;
 
     const paymentRecord = new FinanceRecord({
       restaurantId: userId,
@@ -292,10 +382,12 @@ const processStaffPayment = async (req, res) => {
       date: paymentDate ? new Date(paymentDate) : new Date(),
       staffId: staff._id,
       payrollDetails: {
-        basicSalary: parseFloat(basicSalary),
-        overtime: parseFloat(overtime),
-        allowances: parseFloat(allowances),
-        deductions: parseFloat(deductions),
+        basicSalary: basicSalaryAmount,
+        overtimeHours: overtimeHoursAmount,
+        overtimeRate: overtimeRateAmount,
+        overtimePay,
+        allowances: allowancesAmount,
+        deductions: deductionsAmount,
         epfEmployee,
         epfEmployer,
         etf,
@@ -312,59 +404,64 @@ const processStaffPayment = async (req, res) => {
     res.json({
       success: true,
       message: 'Staff payment processed successfully',
-      paymentRecord
+      paymentRecord,
+      calculationDetails: {
+        basicSalary: basicSalaryAmount,
+        overtimeHours: overtimeHoursAmount,
+        overtimeRate: overtimeRateAmount,
+        overtimePay,
+        allowances: allowancesAmount,
+        grossPay,
+        deductions: deductionsAmount,
+        epfEmployee,
+        netPay
+      }
     });
+
   } catch (error) {
     console.error('Error processing staff payment:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to process staff payment',
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: 'Failed to process staff payment', error: error.message });
   }
 };
 
-// Give bonus with attendance/overtime calculation
+// Give bonus with attendance/overtime calculation - FIXED VERSION
 const giveBonus = async (req, res) => {
   try {
     const userId = req.user?.id || req.user?._id;
     const { 
       staffId, 
       calculationType, 
-      ratePerUnit, 
-      fixedAmount,
+      ratePerUnit = 0, 
+      fixedAmount = 0,
+      allowances = 0,
       month,
       year,
       reason, 
       paymentMethod = 'cash' 
     } = req.body;
 
+    console.log('Bonus form data received:', { staffId, calculationType, ratePerUnit, fixedAmount, allowances });
+
     if (!staffId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Staff ID is required'
-      });
+      return res.status(400).json({ success: false, message: 'Staff ID is required' });
     }
 
     const staff = await Staff.findById(staffId);
     if (!staff) {
-      return res.status(404).json({
-        success: false,
-        message: 'Staff member not found'
-      });
+      return res.status(404).json({ success: false, message: 'Staff member not found' });
     }
 
     let bonusAmount = 0;
     let bonusDetails = {};
 
     if (calculationType === 'fixed') {
-      bonusAmount = parseFloat(fixedAmount);
+      bonusAmount = parseFloat(fixedAmount) + parseFloat(allowances);
       bonusDetails = {
         calculationType: 'fixed',
-        ratePerUnit: parseFloat(fixedAmount)
+        amount: parseFloat(fixedAmount),
+        allowances: parseFloat(allowances)
       };
     } else {
-      // Get performance data for calculation
       const targetMonth = month || new Date().getMonth() + 1;
       const targetYear = year || new Date().getFullYear();
 
@@ -378,25 +475,29 @@ const giveBonus = async (req, res) => {
         }
       });
 
-      const presentDays = attendanceRecords.filter(record => record.status === 'present').length;
-      const totalOvertimeHours = attendanceRecords.reduce((sum, record) => sum + (record.overtimeHours || 0), 0);
+      const presentDays = attendanceRecords.filter(r => r.status === 'present').length;
+      const totalOvertimeHours = attendanceRecords.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
 
       if (calculationType === 'attendance') {
-        bonusAmount = presentDays * parseFloat(ratePerUnit);
+        bonusAmount = (presentDays * parseFloat(ratePerUnit)) + parseFloat(allowances);
         bonusDetails = {
           calculationType: 'attendance',
           attendanceDays: presentDays,
-          ratePerUnit: parseFloat(ratePerUnit)
+          ratePerUnit: parseFloat(ratePerUnit),
+          allowances: parseFloat(allowances)
         };
       } else if (calculationType === 'overtime') {
-        bonusAmount = totalOvertimeHours * parseFloat(ratePerUnit);
+        bonusAmount = (totalOvertimeHours * parseFloat(ratePerUnit)) + parseFloat(allowances);
         bonusDetails = {
           calculationType: 'overtime',
           overtimeHours: totalOvertimeHours,
-          ratePerUnit: parseFloat(ratePerUnit)
+          ratePerUnit: parseFloat(ratePerUnit),
+          allowances: parseFloat(allowances)
         };
       }
     }
+
+    console.log('Bonus calculation:', { bonusAmount, bonusDetails });
 
     const bonusRecord = new FinanceRecord({
       restaurantId: userId,
@@ -419,6 +520,7 @@ const giveBonus = async (req, res) => {
       bonusRecord,
       calculationDetails: bonusDetails
     });
+
   } catch (error) {
     console.error('Error giving bonus:', error);
     res.status(500).json({
@@ -502,7 +604,6 @@ const createStaffLoan = async (req, res) => {
     });
   }
 };
-
 
 // Get staff loans
 const getStaffLoans = async (req, res) => {
@@ -736,7 +837,7 @@ const getFinanceRecords = async (req, res) => {
       .sort({ date: -1, createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
-
+ 
     const total = await FinanceRecord.countDocuments(filter);
 
     res.json({
@@ -760,82 +861,134 @@ const getFinanceRecords = async (req, res) => {
 };
 
 // Generate PDF report
+
 const generateFinanceReport = async (req, res) => {
   try {
     const userId = req.user?.id || req.user?._id;
-    const { startDate, endDate, reportType = 'comprehensive' } = req.query;
+    const { startDate, endDate } = req.query;
 
+    // Fetch finance records
     let filter = { restaurantId: userId };
     if (startDate && endDate) {
-      filter.date = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
+      filter.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
     }
 
     const records = await FinanceRecord.find(filter)
       .populate('staffId', 'firstName lastName position')
       .sort({ date: -1 });
 
-    // Calculate totals
+    // Totals
     const income = records.filter(r => r.type === 'income').reduce((sum, r) => sum + r.amount, 0);
     const expenses = records.filter(r => r.type !== 'income').reduce((sum, r) => sum + r.amount, 0);
     const profit = income - expenses;
 
-    // Create PDF
-    const doc = new PDFDocument();
-    
-    // Set response headers
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=finance-report-${Date.now()}.pdf`);
-    
-    // Pipe PDF to response
-    doc.pipe(res);
-
-    // Add content to PDF
-    doc.fontSize(20).text('Finance Report', 50, 50);
-    doc.fontSize(12).text(`Generated on: ${new Date().toLocaleDateString()}`, 50, 80);
-    
-    if (startDate && endDate) {
-      doc.text(`Period: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`, 50, 100);
+    // Fetch user details
+    let user = null;
+    if (userId && userId !== 'admin') {
+      try {
+        user = await User.findById(userId).lean();
+      } catch (err) {
+        console.error('Error fetching user for PDF:', err);
+      }
     }
 
-    // Summary section
-    doc.fontSize(16).text('Summary', 50, 140);
-    doc.fontSize(12)
-       .text(`Total Income: Rs ${income.toLocaleString()}`, 50, 170)
-       .text(`Total Expenses: Rs ${expenses.toLocaleString()}`, 50, 190)
-       .text(`Net Profit: Rs ${profit.toLocaleString()}`, 50, 210);
+    const restaurantName = user?.restaurantName || user?.businessName || user?.name || '';
+    const restaurantAddress = user?.restaurantAddress || user?.address || user?.location || '123 Main Street, Colombo, Sri Lanka';
+    const restaurantPhone = user?.restaurantPhone || user?.phone || user?.contactNumber || '+94 11 234 5678';
 
-    // Records section
-    let yPosition = 250;
-    doc.fontSize(16).text('Transaction Details', 50, yPosition);
-    yPosition += 30;
+    const now = new Date();
 
-    records.forEach((record, index) => {
-      if (yPosition > 700) {
+    // --- PDF Setup ---
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="finance-report-${Date.now()}.pdf"`);
+    doc.pipe(res);
+
+    // --- Header ---
+    const margin = 40;
+    const pageWidth = doc.page.width;
+    const headerY = 30;
+
+    const logoPath = path.join('D:', 'Pure_Portions', 'frontend', 'src', 'styles', 'images', '1.png');
+    if (fs.existsSync(logoPath)) {
+      doc.image(logoPath, margin, headerY, { width: 120 });
+    }
+
+    const rightBlockX = pageWidth - margin - 220;
+    let rightY = headerY;
+
+    doc.fontSize(22).font('Helvetica-Bold').text('Finance Report', rightBlockX, rightY, { width: 220, align: 'right' });
+    rightY += 28;
+
+    doc.fontSize(8).font('Helvetica').text(`Generated on: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`, rightBlockX, rightY, { width: 220, align: 'right' });
+    rightY += 16;
+
+    doc.fontSize(12).font('Helvetica-Bold').text(restaurantName, rightBlockX, rightY, { width: 220, align: 'right' });
+    rightY += 16;
+    doc.fontSize(10).font('Helvetica').text(restaurantAddress, rightBlockX, rightY, { width: 220, align: 'right' });
+    rightY += 16;
+    doc.text(`Phone: ${restaurantPhone}`, rightBlockX, rightY, { width: 220, align: 'right' });
+    rightY += 20;
+
+    // --- Summary Section ---
+    const summaryText = `Total Income: Rs ${income.toLocaleString()} | Total Expenses: Rs ${expenses.toLocaleString()} | Net Profit: Rs ${profit.toLocaleString()}`;
+    const textWidth = doc.widthOfString(summaryText);
+    const xCenter = (pageWidth - textWidth) / 2;
+    doc.moveDown(2).fontSize(10).font('Helvetica-Bold').fillColor('#2c3e50').text(summaryText, xCenter, doc.y);
+    doc.moveDown(2);
+
+    // --- Transaction Details ---
+    let y = doc.y + 4;
+    const rowHeight = 18;
+    const pageBottom = doc.page.height - 50;
+
+    const drawHeader = () => {
+      doc.fontSize(10).font('Helvetica-Bold').fillColor('white');
+      doc.rect(35, y - 3, 520, rowHeight).fill('#34495e');
+      doc.fillColor('white')
+        .text('Date', 40, y)
+        .text('Type', 110, y)
+        .text('Description', 200, y)
+        .text('Amount (Rs)', 450, y, { width: 100, align: 'right' });
+      y += rowHeight;
+    };
+
+    const addPageIfNeeded = (rowHeightNeeded) => {
+      if (y + rowHeightNeeded > pageBottom) {
         doc.addPage();
-        yPosition = 50;
+        y = 50;
+        drawHeader();
       }
+    };
 
-      doc.fontSize(10)
-         .text(`${new Date(record.date).toLocaleDateString()}`, 50, yPosition)
-         .text(record.type.replace('_', ' ').toUpperCase(), 120, yPosition)
-         .text(record.description, 200, yPosition)
-         .text(`Rs ${record.amount.toLocaleString()}`, 450, yPosition);
-      
-      yPosition += 20;
-    });
+    const drawRow = (record, alternate = false) => {
+      addPageIfNeeded(rowHeight);
+      if (alternate) doc.rect(35, y - 3, 520, rowHeight).fill('#f4f4f4');
+
+      doc.fillColor('black').font('Helvetica')
+        .text(new Date(record.date).toLocaleDateString(), 40, y)
+        .text(record.type.replace('_', ' ').toUpperCase(), 110, y)
+        .text(record.description || '', 200, y)
+        .text(`Rs ${record.amount.toLocaleString()}`, 450, y, { width: 100, align: 'right' });
+
+      y += rowHeight;
+    };
+
+    drawHeader();
+    records.forEach((record, idx) => drawRow(record, idx % 2 === 0));
+
+    // --- Signature ---
+    doc.moveDown(4);
+    const signatureY = Math.max(y + 40, doc.page.height - 120);
+    doc.fontSize(12).font('Helvetica').fillColor('black');
+    doc.text("______________________", 60, signatureY);
+    doc.text("Finance Manager's Signature", 55, signatureY + 15);
 
     doc.end();
 
   } catch (error) {
     console.error('Error generating finance report:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to generate finance report',
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: 'Failed to generate finance report', error: error.message });
   }
 };
 
@@ -901,5 +1054,6 @@ module.exports = {
   getFinanceSummary,
   getFinanceRecords,
   getStaffPerformanceData,
+  getStaffOvertimeData, // NEW: Export the new function
   generateFinanceReport
 };

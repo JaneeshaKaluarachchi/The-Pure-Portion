@@ -420,7 +420,9 @@
 
 .reset-btn {
   padding: 8px 16px;
-  background: #3498db;
+  margin-left: 700px;
+  margin-right: 10px;
+  background-color: #adc517;
   color: white;
   border: none;
   border-radius: 6px;
@@ -616,6 +618,8 @@
   border: none;
   color: white;
   padding: 4px 8px;
+  width: 90px;
+  margin-top: 5px;
   margin-left: 5px;
   border-radius: 4px;
   cursor: pointer;

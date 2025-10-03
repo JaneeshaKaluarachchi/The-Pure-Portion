@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import '../styles/RecipeManagement.css';
 import LoadingScreen from "./LoadingScreen";
+import curry from "../styles/images/foodbyjag-jagyasini-singh.gif"
+import meal from "../styles/images/meal.gif"
 
 const RecipeManagement = () => {
   const [recipes, setRecipes] = useState([]);
@@ -439,7 +441,9 @@ const RecipeManagement = () => {
                 className="create-card"
                 onClick={() => handleCreateNew("curry")}
               >
-                <div className="create-icon">🍛</div>
+                <div className="create-icon">
+                  <img src={curry} className="curryicon"></img>
+                </div>
                 <h3>Create Curry</h3>
                 <p>Create a new Sri Lankan curry recipe</p>
               </div>
@@ -448,7 +452,9 @@ const RecipeManagement = () => {
                 className="create-card"
                 onClick={() => handleCreateNew("meal")}
               >
-                <div className="create-icon">🍽️</div>
+                <div className="create-icon">
+                  <img src={meal} className="curryicon"></img>
+                </div>
                 <h3>New Meal</h3>
                 <p>Create a new meal recipe</p>
               </div>
@@ -738,7 +744,7 @@ const IngredientSelector = ({ item, onAdd, isSelected, availableUnits }) => {
       <div className="ingredient-info">
         <span className="ingredient-name">{item.name}</span>
         <span className="ingredient-available">Available: {item.currentQuantity} {item.unit}</span>
-        <span className="ingredient-cost">LKR {item.costPerUnit}/{item.unit}</span>
+        <span className="ingredient-cost">LKR {item.costPerUnit}/{item.costUnit}</span>
       </div>
 
       <div className="ingredient-controls">

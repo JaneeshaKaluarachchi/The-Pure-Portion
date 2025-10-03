@@ -86,7 +86,8 @@ const createPortionPlan = async (req, res) => {
     console.log('Restaurant ID from token:', restaurantId);
 
     // Validate main meal recipe
-    const mainMealRecipe = await Recipe.findById(mainMeal.recipeId).populate('ingredients.inventoryItemId');
+    const mainMealRecipe = await Recipe.findById(mainMeal.recipeId)
+    .populate('ingredients.inventoryItemId');
     if (!mainMealRecipe) {
       return res.status(404).json({ message: 'Main meal recipe not found' });
     }
@@ -228,38 +229,40 @@ const createPortionPlan = async (req, res) => {
     console.log('Portion plan saved with total cost:', portionPlan.totalCost);
 
     // Create notifications based on inventory availability
-    if (restaurantId) {
-      if (missingItems.length > 0) {
-        // Create notification for insufficient inventory
-        await createNotificationHelper({
-          type: 'insufficient_inventory',
-          title: 'Insufficient Inventory for Portion Plan',
-          message: `Portion plan "${name}" cannot be executed due to insufficient inventory. ${missingItems.length} items need restocking.`,
-          fromModule: 'portion_calculator',
-          toModule: 'inventory_management',
-          restaurantId: restaurantId,
-          relatedData: {
-            portionPlanId: portionPlan._id,
-            missingItems: missingItems
-          },
-          priority: 'high'
-        });
-      } else {
-        // Create notification for successful portion plan creation
-        await createNotificationHelper({
-          type: 'portion_plan_created',
-          title: 'New Portion Plan Created',
-          message: `Portion plan "${name}" has been created and is ready for execution.`,
-          fromModule: 'portion_calculator',
-          toModule: 'inventory_management',
-          restaurantId: restaurantId,
-          relatedData: {
-            portionPlanId: portionPlan._id
-          },
-          priority: 'medium'
-        });
-      }
-    }
+    // Create notifications based on inventory availability
+if (restaurantId) {
+  if (missingItems.length > 0) {
+    // ✅ Insufficient inventory notification
+    await createNotificationHelper({
+      type: 'insufficient_inventory',
+      title: 'Insufficient Inventory for Portion Plan',
+      message: `Portion plan "${name}" cannot be executed due to insufficient inventory. ${missingItems.length} items need restocking.`,
+      fromModule: 'portion_calculator',
+      toModule: 'inventory_management',
+      restaurantId,
+      relatedData: {
+        portionPlanId: portionPlan._id,
+        missingItems
+      },
+      priority: 'high'
+    });
+  } else {
+    // ✅ Portion plan created successfully
+    await createNotificationHelper({
+      type: 'portion_plan_created',
+      title: 'New Portion Plan Created',
+      message: `Portion plan "${name}" has been created and is ready for execution.`,
+      fromModule: 'portion_calculator',
+      toModule: 'inventory_management',
+      restaurantId,
+      relatedData: {
+        portionPlanId: portionPlan._id
+      },
+      priority: 'medium'
+    });
+  }
+}
+
 
     res.status(201).json({
       message: 'Portion plan created successfully',
@@ -402,36 +405,37 @@ const executePortionPlan = async (req, res) => {
       );
 
       const unavailableItems = inventoryChecks.filter(check => !check.available);
-      if (unavailableItems.length > 0) {
-        console.log('Insufficient inventory items:', unavailableItems);
-        
-        // Create notification for insufficient inventory during execution
-        if (restaurantId) {
-          await createNotificationHelper({
-            type: 'insufficient_inventory',
-            title: 'Cannot Execute Portion Plan - Insufficient Inventory',
-            message: `Portion plan "${plan.name}" cannot be executed due to insufficient inventory. Please restock the missing items.`,
-            fromModule: 'portion_calculator',
-            toModule: 'inventory_management',
-            restaurantId: restaurantId,
-            relatedData: {
-              portionPlanId: plan._id,
-              missingItems: unavailableItems.map(item => ({
-                itemName: item.item,
-                required: item.required,
-                available: item.current,
-                unit: item.unit
-              }))
-            },
-            priority: 'urgent'
-          });
-        }
-        
-        return res.status(400).json({
-          message: 'Insufficient inventory for the following items',
-          unavailableItems
-        });
-      }
+if (unavailableItems.length > 0) {
+  console.log('Insufficient inventory items:', unavailableItems);
+
+  // ✅ Notification for execution failure
+  if (restaurantId) {
+    await createNotificationHelper({
+      type: 'insufficient_inventory',
+      title: 'Cannot Execute Portion Plan - Insufficient Inventory',
+      message: `Portion plan "${plan.name}" cannot be executed due to insufficient inventory. Please restock the missing items.`,
+      fromModule: 'portion_calculator',
+      toModule: 'inventory_management',
+      restaurantId,
+      relatedData: {
+        portionPlanId: plan._id,
+        missingItems: unavailableItems.map(item => ({
+          itemName: item.item,
+          required: item.required,
+          available: item.current,
+          unit: item.unit
+        }))
+      },
+      priority: 'urgent'
+    });
+  }
+
+  return res.status(400).json({
+    message: 'Insufficient inventory for the following items',
+    unavailableItems
+  });
+}
+
 
       // All items are available, proceed with deduction
       console.log('All items available, proceeding with deduction...');
@@ -474,7 +478,8 @@ const executePortionPlan = async (req, res) => {
             throw new Error(`Failed to deduct ${ingredient.itemName} from inventory - insufficient quantity or item not found`);
           }
           
-          console.log(`Successfully deducted ${ingredient.totalQuantity} ${ingredient.unit} of ${ingredient.itemName}. After: ${result.currentQuantity}`);
+          console.log(`Successfully deducted ${ingredient.totalQuantity} ${ingredient.unit} of 
+            ${ingredient.itemName}. After: ${result.currentQuantity}`);
           
           deductionResults.push({
             item: ingredient.itemName,
@@ -537,7 +542,7 @@ const generatePDF = async (req, res) => {
 
     // --- Restaurant details fallbacks (same style as inventory PDF) ---
     const restaurantName =
-  user?.restaurantName || user?.businessName || user?.name || 'Ape Kama Restaurant';
+  user?.restaurantName || user?.businessName || user?.name || '';
 
 const restaurantAddress =
   user?.restaurantAddress || user?.address || user?.location || '123 Main Street, Colombo, Sri Lanka';
@@ -564,7 +569,7 @@ const pageWidth = doc.page.width;
 const headerY = 30;
 
 // Logo (left)
-const logoPath = path.join('D:', 'Pure_Portions', 'frontend', 'src', 'styles', 'images', '1.png');
+  const logoPath = path.join('D:', 'Pure_Portions', 'frontend', 'src', 'styles', 'images', '1.png');
 if (fs.existsSync(logoPath)) {
   doc.image(logoPath, margin, headerY, { width: 120 });
 }

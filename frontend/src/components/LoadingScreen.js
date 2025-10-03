@@ -1,6 +1,6 @@
 import React from "react";
 import "../styles/LoadingScreen.css";
-import logoSpinner from "../styles/images/spinner.png"; 
+import logoSpinner from "../styles/images/0845c232253239.56766f2d063c9.gif"; 
 
 const LoadingScreen = () => {
   return (

@@ -14,6 +14,7 @@ const financeRoutes = require('./routes/financeRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const RestaurantSettings =  require('./routes/settingsRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 
 const app = express();
 
@@ -40,6 +41,8 @@ app.use('/api/leftovers', leftoverRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/settings',RestaurantSettings);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/chat', chatRoutes);
+
 
 // Basic route
 app.get('/', (req, res) => {

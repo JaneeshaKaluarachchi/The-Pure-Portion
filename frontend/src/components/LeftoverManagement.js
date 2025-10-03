@@ -1,10 +1,235 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import '../styles/LeftoverManagement.css';
+import '../styles/CustomPopup.css';
 import ChatAssistant from "./ChatAssistant";
-import { useNavigate } from "react-router-dom";
-import { Rnd } from "react-rnd";
 import LoadingScreen from "./LoadingScreen";
+import logo from "../styles/images/1.png"
+
+// Validation constants
+const ALLOWED_CITIES = [
+  "Colombo", "Gampaha", "Kalutara", "Kandy", "Matale", "Nuwara Eliya",
+  "Galle", "Matara", "Hambantota", "Jaffna", "Kilinochchi", "Mannar",
+  "Vavuniya", "Mullaitivu", "Batticaloa", "Ampara", "Trincomalee",
+  "Kurunegala", "Puttalam", "Anuradhapura", "Polonnaruwa", "Badulla",
+  "Monaragala", "Ratnapura", "Kegalle"
+];
+
+// Validation functions
+const validateFoodName = (name) => {
+  if (!name || !name.trim()) {
+    return "Food name is required";
+  }
+  if (!/^[A-Za-z\s]+$/.test(name.trim())) {
+    return "Food name can only contain letters and spaces";
+  }
+  return null;
+};
+
+const validateQuantity = (quantity) => {
+  if (!quantity || quantity === '') {
+    return "Quantity is required";
+  }
+  const num = parseFloat(quantity);
+  if (isNaN(num) || num <= 0) {
+    return "Quantity must be a number greater than 0";
+  }
+  return null;
+};
+
+const validateExpiryDate = (expiryDate) => {
+  if (!expiryDate) {
+    return "Expiry date is required";
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiry = new Date(expiryDate);
+  if (expiry < today) {
+    return "Expiry date cannot be in the past";
+  }
+  return null;
+};
+
+const validateAddress = (address) => {
+  if (!address || !address.trim()) {
+    return "Address is required";
+  }
+  
+  const parts = address.split(",").map(part => part.trim());
+  if (parts.length !== 3) {
+    return "Address must be in format: 'House name, Town, City'";
+  }
+  
+  const city = parts[2];
+  if (!ALLOWED_CITIES.includes(city)) {
+    return `City '${city}' is not allowed. Please select from: ${ALLOWED_CITIES.join(", ")}`;
+  }
+  
+  return null;
+};
+
+const validateRequesterName = (name) => {
+  if (!name || !name.trim()) {
+    return "Requester name is required";
+  }
+  if (!/^[A-Za-z\s]+$/.test(name.trim())) {
+    return "Requester name can only contain letters and spaces";
+  }
+  return null;
+};
+
+const validateNeededByDate = (neededBy) => {
+  if (!neededBy) {
+    return "Needed by date is required";
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const needed = new Date(neededBy);
+  if (needed <= today) {
+    return "Needed by date must be in the future";
+  }
+  return null;
+};
+
+const validatePhone = (phone) => {
+  if (!phone || !phone.trim()) {
+    return "Phone number is required";
+  }
+  if (!/^[0-9]{10}$/.test(phone.trim())) {
+    return "Phone number must be exactly 10 digits";
+  }
+  return null;
+};
+
+const validateEmail = (email) => {
+  if (!email || !email.trim()) {
+    return "Email is required";
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    return "Invalid email format";
+  }
+  return null;
+};
+
+const validateRequestedItems = (items) => {
+  if (!items || items.length === 0) {
+    return "At least one requested item is required";
+  }
+  
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (!item.itemName || !item.itemName.trim()) {
+      return `Item name is required for item ${i + 1}`;
+    }
+    if (!/^[A-Za-z\s]+$/.test(item.itemName.trim())) {
+      return `Item name can only contain letters and spaces for item ${i + 1}`;
+    }
+    if (!item.quantity || isNaN(item.quantity) || parseFloat(item.quantity) <= 0) {
+      return `Quantity must be greater than 0 for item ${i + 1}`;
+    }
+  }
+  
+  return null;
+};
+
+// Custom Popup Component
+const CustomPopup = ({ message, type = 'info', onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const getIcon = () => {
+    switch (type) {
+      case 'success': return '✅';
+      case 'error': return '❌';
+      case 'warning': return '⚠️';
+      case 'info': return 'ℹ️';
+      default: return 'ℹ️';
+    }
+  };
+
+  return (
+    <div className={`custom-popup ${type}`}>
+      <div className="popup-content">
+        <span className="popup-icon">{getIcon()}</span>
+        <span className="popup-message">{message}</span>
+        <button className="popup-close" onClick={onClose}>×</button>
+      </div>
+    </div>
+  );
+};
+
+// Custom Confirmation Dialog Component
+const CustomConfirmDialog = ({ title, message, onConfirm, onCancel, needsInput = false, onClose }) => {
+  const [inputValue, setInputValue] = useState('');
+
+  const handleConfirm = () => {
+    if (needsInput) {
+      onConfirm(inputValue);
+    } else {
+      onConfirm();
+    }
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal confirm-dialog">
+        <div className="modal-header">
+          <h3>{title}</h3>
+          <button onClick={onClose}>×</button>
+        </div>
+        <div className="confirm-content">
+          <p>{message}</p>
+          {needsInput && (
+            <textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder="Enter reason..."
+              className="confirm-input"
+            />
+          )}
+          <div className="confirm-actions">
+            <button className="cancel-btn" onClick={onClose}>Cancel</button>
+            <button className="confirm-btn" onClick={handleConfirm}>Confirm</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Popup Manager Hook
+const usePopup = () => {
+  const [popups, setPopups] = useState([]);
+
+  const showPopup = (message, type = 'info') => {
+    const id = Date.now();
+    const newPopup = { id, message, type };
+    setPopups(prev => [...prev, newPopup]);
+  };
+
+  const removePopup = (id) => {
+    setPopups(prev => prev.filter(popup => popup.id !== id));
+  };
+
+  const PopupContainer = () => (
+    <div className="popup-container">
+      {popups.map(popup => (
+        <CustomPopup
+          key={popup.id}
+          message={popup.message}
+          type={popup.type}
+          onClose={() => removePopup(popup.id)}
+        />
+      ))}
+    </div>
+  );
+
+  return { showPopup, PopupContainer };
+};
 
 const LeftoverManagement = () => {
   const [activeTab, setActiveTab] = useState('browse');
@@ -23,8 +248,17 @@ const LeftoverManagement = () => {
     location: '',
     radius: 10
   });
-  const navigate = useNavigate(); 
+  
   const [showChatbot, setShowChatbot] = useState(false);
+  const [showCustomConfirm, setShowCustomConfirm] = useState({ show: false });
+
+  // Validation errors state
+  const [donationErrors, setDonationErrors] = useState({});
+  const [requestErrors, setRequestErrors] = useState({});
+
+  // Add popup hook
+  const { showPopup, PopupContainer } = usePopup();
+
   // Donation form state
   const [donationForm, setDonationForm] = useState({
     name: '',
@@ -67,6 +301,264 @@ const LeftoverManagement = () => {
     proofDocuments: []
   });
 
+  // Real-time validation handlers for donation form
+  const handleDonationFieldChange = (field, value) => {
+    setDonationForm({ ...donationForm, [field]: value });
+    
+    // Real-time validation
+    const errors = { ...donationErrors };
+    
+    switch (field) {
+      case 'name':
+        const nameError = validateFoodName(value);
+        if (nameError) {
+          errors.name = nameError;
+        } else {
+          delete errors.name;
+        }
+        break;
+      case 'quantity':
+        const quantityError = validateQuantity(value);
+        if (quantityError) {
+          errors.quantity = quantityError;
+        } else {
+          delete errors.quantity;
+        }
+        break;
+      case 'expiryDate':
+        const expiryError = validateExpiryDate(value);
+        if (expiryError) {
+          errors.expiryDate = expiryError;
+        } else {
+          delete errors.expiryDate;
+        }
+        break;
+      case 'address':
+        const addressError = validateAddress(value);
+        if (addressError) {
+          errors.address = addressError;
+        } else {
+          delete errors.address;
+        }
+        break;
+      case 'description':
+        if (!value?.trim()) {
+          errors.description = "Description is required";
+        } else {
+          delete errors.description;
+        }
+        break;
+      default:
+        break;
+    }
+    
+    setDonationErrors(errors);
+  };
+
+  // Real-time validation handlers for request form
+  const handleRequestFieldChange = (field, value) => {
+    if (field.includes('.')) {
+      const [parent, child] = field.split('.');
+      setRequestForm({
+        ...requestForm,
+        [parent]: { ...requestForm[parent], [child]: value }
+      });
+    } else {
+      setRequestForm({ ...requestForm, [field]: value });
+    }
+    
+    // Real-time validation
+    const errors = { ...requestErrors };
+    
+    switch (field) {
+      case 'requesterName':
+        const nameError = validateRequesterName(value);
+        if (nameError) {
+          errors.requesterName = nameError;
+        } else {
+          delete errors.requesterName;
+        }
+        break;
+      case 'targetOrganization':
+        if (!value?.trim()) {
+          errors.targetOrganization = "Organization/Target is required";
+        } else {
+          delete errors.targetOrganization;
+        }
+        break;
+      case 'purpose':
+        if (!value?.trim()) {
+          errors.purpose = "Purpose is required";
+        } else {
+          delete errors.purpose;
+        }
+        break;
+      case 'description':
+        if (!value?.trim()) {
+          errors.description = "Description is required";
+        } else {
+          delete errors.description;
+        }
+        break;
+      case 'location.address':
+        const addressError = validateAddress(value);
+        if (addressError) {
+          errors.address = addressError;
+        } else {
+          delete errors.address;
+        }
+        break;
+      case 'neededBy':
+        const neededByError = validateNeededByDate(value);
+        if (neededByError) {
+          errors.neededBy = neededByError;
+        } else {
+          delete errors.neededBy;
+        }
+        break;
+      case 'contactInfo.phone':
+        const phoneError = validatePhone(value);
+        if (phoneError) {
+          errors.phone = phoneError;
+        } else {
+          delete errors.phone;
+        }
+        break;
+      case 'contactInfo.email':
+        const emailError = validateEmail(value);
+        if (emailError) {
+          errors.email = emailError;
+        } else {
+          delete errors.email;
+        }
+        break;
+      default:
+        break;
+    }
+    
+    setRequestErrors(errors);
+  };
+
+  // Real-time validation for requested items
+  const handleRequestItemChange = (index, field, value) => {
+    const items = [...requestForm.requestedItems];
+    items[index][field] = value;
+    setRequestForm({ ...requestForm, requestedItems: items });
+    
+    // Real-time validation for requested items
+    const errors = { ...requestErrors };
+    const itemsError = validateRequestedItems(items);
+    if (itemsError) {
+      errors.requestedItems = itemsError;
+    } else {
+      delete errors.requestedItems;
+    }
+    setRequestErrors(errors);
+  };
+
+  // PDF Download function
+  const handleDownloadPDF = async (status = 'all', type = 'all') => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const params = new URLSearchParams();
+      if (status !== 'all') params.append('status', status);
+      if (type !== 'all') params.append('type', type);
+
+      const response = await axios.get(`http://localhost:5000/api/leftovers/report/pdf?${params}`, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+        },
+        responseType: 'blob'
+      });
+
+      // Create blob link to download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Donations_Report_${Date.now()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      showPopup('PDF report downloaded successfully!', 'success');
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      showPopup('Failed to download PDF report: ' + (error.response?.data?.message || error.message), 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Validation functions for forms
+  const validateDonationForm = () => {
+    const errors = {};
+    
+    const nameError = validateFoodName(donationForm.name);
+    if (nameError) errors.name = nameError;
+    
+    const quantityError = validateQuantity(donationForm.quantity);
+    if (quantityError) errors.quantity = quantityError;
+    
+    const expiryError = validateExpiryDate(donationForm.expiryDate);
+    if (expiryError) errors.expiryDate = expiryError;
+    
+    const addressError = validateAddress(donationForm.address);
+    if (addressError) errors.address = addressError;
+    
+    if (!donationForm.description?.trim()) {
+      errors.description = "Description is required";
+    }
+    
+    setDonationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateRequestForm = () => {
+    const errors = {};
+    
+    const nameError = validateRequesterName(requestForm.requesterName);
+    if (nameError) errors.requesterName = nameError;
+    
+    if (!requestForm.targetOrganization?.trim()) {
+      errors.targetOrganization = "Organization/Target is required";
+    }
+    
+    if (!requestForm.purpose?.trim()) {
+      errors.purpose = "Purpose is required";
+    }
+    
+    if (!requestForm.description?.trim()) {
+      errors.description = "Description is required";
+    }
+    
+    const addressError = validateAddress(requestForm.location.address);
+    if (addressError) errors.address = addressError;
+    
+    const neededByError = validateNeededByDate(requestForm.neededBy);
+    if (neededByError) errors.neededBy = neededByError;
+    
+    const phoneError = validatePhone(requestForm.contactInfo.phone);
+    if (phoneError) errors.phone = phoneError;
+    
+    const emailError = validateEmail(requestForm.contactInfo.email);
+    if (emailError) errors.email = emailError;
+    
+    const itemsError = validateRequestedItems(requestForm.requestedItems);
+    if (itemsError) errors.requestedItems = itemsError;
+    
+    // Check if proof documents are required for official organizations
+    const officialOrgs = ['charity', 'ngo', 'food-bank', 'shelter', 'school', 'hospital'];
+    if (officialOrgs.includes(requestForm.organizationType) && 
+        (!requestForm.proofDocuments || requestForm.proofDocuments.length === 0)) {
+      errors.proofDocuments = "Proof documents are required for official organizations";
+    }
+    
+    setRequestErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   // Fetch functions
   const fetchLeftovers = useCallback(async () => {
     try {
@@ -89,24 +581,23 @@ const LeftoverManagement = () => {
     }
   }, [filters]);
 
-const handleHelpRequest = async (requestId) => {
-  try {
-    const token = localStorage.getItem('token');
-    await axios.post(
-      `http://localhost:5000/api/leftovers/requests/${requestId}/fulfill`, // <-- fixed route
-      {},
-      {
-        headers: { Authorization: `Bearer ${token}` }
-      }
-    );
-    alert('You have successfully offered help for this request!');
-    fetchDonationRequests(); // Refresh progress bar or donation requests list
-  } catch (error) {
-    console.error('Error helping with request:', error);
-    alert('Failed to help with request: ' + (error.response?.data?.message || error.message));
-  }
-};
-
+  const handleHelpRequest = async (requestId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `http://localhost:5000/api/leftovers/requests/${requestId}/fulfill`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      showPopup('You have successfully offered help for this request!', 'success');
+      fetchDonationRequests();
+    } catch (error) {
+      console.error('Error helping with request:', error);
+      showPopup('Failed to help with request: ' + (error.response?.data?.message || error.message), 'error');
+    }
+  };
 
   const fetchDonationRequests = useCallback(async () => {
     try {
@@ -196,16 +687,23 @@ const handleHelpRequest = async (requestId) => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      alert('Leftover claimed successfully! Check your email for pickup details.');
+      showPopup('Leftover claimed successfully! Check your email for pickup details.', 'success');
       fetchLeftovers();
     } catch (error) {
       console.error('Error claiming leftover:', error);
-      alert('Failed to claim leftover: ' + (error.response?.data?.message || error.message));
+      showPopup('Failed to claim leftover: ' + (error.response?.data?.message || error.message), 'error');
     }
   };
 
   const handleDonateSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate form before submission
+    if (!validateDonationForm()) {
+      showPopup('Please fix the validation errors before submitting', 'error');
+      return;
+    }
+    
     try {
       const token = localStorage.getItem('token');
       const formData = new FormData();
@@ -229,18 +727,25 @@ const handleHelpRequest = async (requestId) => {
         }
       });
 
-      alert('Donation submitted successfully! It will be reviewed by our admin team.');
+      showPopup('Donation submitted successfully! It will be reviewed by our admin team.', 'success');
       setShowDonateModal(false);
       resetDonationForm();
       if (activeTab === 'my-donations') fetchMyLeftovers();
     } catch (error) {
       console.error('Error submitting donation:', error);
-      alert('Failed to submit donation: ' + (error.response?.data?.message || error.message));
+      showPopup('Failed to submit donation: ' + (error.response?.data?.message || error.message), 'error');
     }
   };
 
   const handleRequestSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate form before submission
+    if (!validateRequestForm()) {
+      showPopup('Please fix the validation errors before submitting', 'error');
+      return;
+    }
+    
     try {
       const token = localStorage.getItem('token');
       const formData = new FormData();
@@ -266,13 +771,13 @@ const handleHelpRequest = async (requestId) => {
         }
       });
 
-      alert('Donation request submitted successfully! It will be reviewed by our admin team.');
+      showPopup('Donation request submitted successfully! It will be reviewed by our admin team.', 'success');
       setShowRequestModal(false);
       resetRequestForm();
       if (activeTab === 'requests') fetchDonationRequests();
     } catch (error) {
       console.error('Error submitting request:', error);
-      alert('Failed to submit request: ' + (error.response?.data?.message || error.message));
+      showPopup('Failed to submit request: ' + (error.response?.data?.message || error.message), 'error');
     }
   };
 
@@ -295,6 +800,7 @@ const handleHelpRequest = async (requestId) => {
         preferredContact: 'app'
       }
     });
+    setDonationErrors({});
   };
 
   const resetRequestForm = () => {
@@ -318,6 +824,7 @@ const handleHelpRequest = async (requestId) => {
       notes: '',
       proofDocuments: []
     });
+    setRequestErrors({});
   };
 
   const handleApproveReject = async (id, action, reason = '', type = 'leftover') => {
@@ -334,7 +841,7 @@ const handleHelpRequest = async (requestId) => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      alert(`${type === 'leftover' ? 'Leftover' : 'Request'} ${action}d successfully!`);
+      showPopup(`${type === 'leftover' ? 'Leftover' : 'Request'} ${action}d successfully!`, 'success');
       if (type === 'leftover') {
         fetchPendingLeftovers();
       } else {
@@ -342,8 +849,27 @@ const handleHelpRequest = async (requestId) => {
       }
     } catch (error) {
       console.error(`Error updating ${type}:`, error);
-      alert(`Failed to update ${type}: ` + (error.response?.data?.message || error.message));
+      showPopup(`Failed to update ${type}: ` + (error.response?.data?.message || error.message), 'error');
     }
+  };
+
+  // Custom confirmation popup for reject actions
+  const handleRejectWithReason = (id, type) => {
+    setShowCustomConfirm({
+      show: true,
+      title: `Reject ${type === 'leftover' ? 'Leftover' : 'Request'}`,
+      message: 'Please provide a reason for rejection:',
+      onConfirm: (reason) => {
+        if (reason.trim()) {
+          handleApproveReject(id, 'reject', reason, type);
+        } else {
+          showPopup('Reason is required for rejection', 'warning');
+        }
+        setShowCustomConfirm({ show: false });
+      },
+      onCancel: () => setShowCustomConfirm({ show: false }),
+      needsInput: true
+    });
   };
 
   const addRequestItem = () => {
@@ -355,12 +881,6 @@ const handleHelpRequest = async (requestId) => {
 
   const removeRequestItem = (index) => {
     const items = requestForm.requestedItems.filter((_, i) => i !== index);
-    setRequestForm({ ...requestForm, requestedItems: items });
-  };
-
-  const updateRequestItem = (index, field, value) => {
-    const items = [...requestForm.requestedItems];
-    items[index][field] = value;
     setRequestForm({ ...requestForm, requestedItems: items });
   };
 
@@ -394,9 +914,21 @@ const handleHelpRequest = async (requestId) => {
     }
   };
 
- if (loading) return <LoadingScreen />;
+  if (loading) return <LoadingScreen />;
+
   return (
     <div className="leftover-management">
+      {/* Add the popup container */}
+      <PopupContainer />
+      
+      {/* Custom confirmation dialog */}
+      {showCustomConfirm.show && (
+        <CustomConfirmDialog
+          {...showCustomConfirm}
+          onClose={() => setShowCustomConfirm({ show: false })}
+        />
+      )}
+
       <div className="leftover-header">
         <h2>♻️ Leftover Management System</h2>
         <div className="header-actions">
@@ -414,11 +946,10 @@ const handleHelpRequest = async (requestId) => {
           </button>
           <button 
             className="chatbot-btn"
-            onClick={() => setShowChatbot(true)}   // instead of navigate("/chatbot")
+            onClick={() => setShowChatbot(true)}
           >
-          🤖 AI Chatbot
+            🤖 AI Chatbot
           </button>
-
         </div>
       </div>
       {error && <div className="error-message">{error}</div>}
@@ -449,22 +980,24 @@ const handleHelpRequest = async (requestId) => {
           >
             ⚙️ Admin Panel
           </button>
-
         )}
       </div>
 
-
       {showChatbot && (
-      <div className="modal-overlay">
-        <div className="modal chatbot-modal">
-          <div className="modal-header">
-            <h3>AI Chatbot</h3>
-            <button onClick={() => setShowChatbot(false)}>×</button>
-          </div>
-          <ChatAssistant /> {/* reuse your chatbot component */}
+  <div className="modal-overlay">
+    <div className="modal chatbot-modal">
+      <div className="modal-header">
+        <div className="header-title">
+          <img src={logo} alt="Bot Logo" className="bot-logo" />
+          <h3>ChatBot</h3>
         </div>
+        <button onClick={() => setShowChatbot(false)}>×</button>
       </div>
-      )}
+      <ChatAssistant />
+    </div>
+  </div>
+)}
+
 
       {/* Browse Donations Tab */}
       {activeTab === 'browse' && (
@@ -506,7 +1039,8 @@ const handleHelpRequest = async (requestId) => {
                   <img src={`http://localhost:5000${leftover.imageUrl}`} alt={leftover.name} />
                 )}
                 <div className="leftover-content">
-                  <h3>{leftover.name}</h3>
+                  <h3>{leftover.name}
+                  <span className="donor-type">{leftover.donorType}</span></h3>
                   <p className="description">{leftover.description}</p>
                   <div className="leftover-details">
                     <span className="quantity">{leftover.quantity} {leftover.unit}</span>
@@ -519,11 +1053,10 @@ const handleHelpRequest = async (requestId) => {
                     </span>
                   </div>
                   <div className="location-info">
-  <span>📍 {leftover.address || 'Location not specified'}</span>
-</div>
+                    <span> {leftover.location?.address || leftover.address || '📍Location not specified'}</span>
+                  </div>
                   <div className="donor-info">
                     <span>Donated by: {leftover.donorName}</span>
-                    <span className="donor-type">{leftover.donorType}</span>
                   </div>
                   <div className="leftover-tags">
                     {leftover.dietaryTags?.map(tag => (
@@ -538,7 +1071,7 @@ const handleHelpRequest = async (requestId) => {
                       className="claim-btn"
                       onClick={() => handleClaimLeftover(leftover._id)}
                     >
-                      🙋‍♂️ Claim This Food
+                       Claim This Food
                     </button>
                   </div>
                 </div>
@@ -566,8 +1099,6 @@ const handleHelpRequest = async (requestId) => {
                     <span className="org-type-badge">{request.organizationType}</span>
                   </div>
                 </div>
-                <p className="purpose">{request.purpose}</p>
-                <p className="description">{request.description}</p>
                 
                 <div className="requested-items">
                   <h4>Requested Items:</h4>
@@ -580,7 +1111,7 @@ const handleHelpRequest = async (requestId) => {
                 </div>
 
                 <div className="request-meta">
-                  <span>📍 {request.location?.address}</span>
+                  <span> {request.location?.address}</span>
                   <span>📅 Needed by: {formatDate(request.neededBy)}</span>
                   <span>👤 Requested by: {request.requesterName}</span>
                 </div>
@@ -596,13 +1127,13 @@ const handleHelpRequest = async (requestId) => {
                 </div>
 
                 <div className="request-actions">
-  <button 
-    className="fulfill-btn"
-    onClick={() => handleHelpRequest(request._id)}
-  >
-    🤝 Help with this Request
-  </button>
-</div>
+                  <button 
+                    className="fulfill-btn"
+                    onClick={() => handleHelpRequest(request._id)}
+                  >
+                    🤝 Help with this Request
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -612,6 +1143,32 @@ const handleHelpRequest = async (requestId) => {
       {/* My Donations Tab */}
       {activeTab === 'my-donations' && (
         <div className="my-donations-section">
+          <div className="donations-header">
+            <h3>My Donations & Requests</h3>
+            <div className="pdf-download-options">
+              <button 
+                className="pdf-btn"
+                onClick={() => handleDownloadPDF('all', 'donations')}
+                disabled={loading}
+              >
+                📄 Download My Donations PDF
+              </button>
+              <button 
+                className="pdf-btn"
+                onClick={() => handleDownloadPDF('all', 'requests')}
+                disabled={loading}
+              >
+                📄 Download My Requests PDF
+              </button>
+              <button 
+                className="pdf-btn"
+                onClick={() => handleDownloadPDF('all', 'all')}
+                disabled={loading}
+              >
+                📄 Download Complete Report
+              </button>
+            </div>
+          </div>
           <div className="donations-grid">
             {myLeftovers.map(leftover => (
               <div key={leftover._id} className="my-leftover-card">
@@ -624,7 +1181,6 @@ const handleHelpRequest = async (requestId) => {
                     {leftover.status}
                   </span>
                 </div>
-                <p>{leftover.description}</p>
                 <div className="leftover-meta">
                   <span>Quantity: {leftover.quantity} {leftover.unit}</span>
                   <span>Expires: {formatDate(leftover.expiryDate)}</span>
@@ -632,7 +1188,7 @@ const handleHelpRequest = async (requestId) => {
                 </div>
                 {leftover.claimedBy && (
                   <div className="claimed-info">
-                    <span>Claimed by: {leftover.claimedBy.userName}</span>
+                    <span>Claimed by: {leftover.claimedBy.userName}</span><br></br>
                     <span>Claimed on: {formatDate(leftover.claimedBy.claimedAt)}</span>
                   </div>
                 )}
@@ -663,7 +1219,7 @@ const handleHelpRequest = async (requestId) => {
                       <span>Quantity: {leftover.quantity} {leftover.unit}</span>
                       <span>Category: {leftover.category}</span>
                       <span>Expires: {formatDate(leftover.expiryDate)}</span>
-                      <span>📍 {leftover.location?.address}</span>
+                      <span> {leftover.location?.address}</span>
                     </div>
                   </div>
                   <div className="admin-actions">
@@ -675,10 +1231,7 @@ const handleHelpRequest = async (requestId) => {
                     </button>
                     <button 
                       className="reject-btn"
-                      onClick={() => {
-                        const reason = prompt('Reason for rejection:');
-                        if (reason) handleApproveReject(leftover._id, 'reject', reason, 'leftover');
-                      }}
+                      onClick={() => handleRejectWithReason(leftover._id, 'leftover')}
                     >
                       ❌ Reject
                     </button>
@@ -700,7 +1253,7 @@ const handleHelpRequest = async (requestId) => {
                       <span>Type: {request.organizationType}</span>
                       <span>Urgency: {request.urgencyLevel}</span>
                       <span>Needed by: {formatDate(request.neededBy)}</span>
-                      <span>📍 {request.location?.address}</span>
+                      <span> {request.location?.address}</span>
                       {request.isOfficialRequest && (
                         <span className="official-badge">🏛️ Official Request - Requires Verification</span>
                       )}
@@ -721,10 +1274,7 @@ const handleHelpRequest = async (requestId) => {
                     </button>
                     <button 
                       className="reject-btn"
-                      onClick={() => {
-                        const reason = prompt('Reason for rejection:');
-                        if (reason) handleApproveReject(request._id, 'reject', reason, 'request');
-                      }}
+                      onClick={() => handleRejectWithReason(request._id, 'request')}
                     >
                       ❌ Reject
                     </button>
@@ -750,27 +1300,35 @@ const handleHelpRequest = async (requestId) => {
                 <input 
                   type="text"
                   value={donationForm.name}
-                  onChange={(e) => setDonationForm({...donationForm, name: e.target.value})}
+                  onChange={(e) => handleDonationFieldChange('name', e.target.value)}
+                  className={donationErrors.name ? 'error' : ''}
                   required
                 />
+                {donationErrors.name && <span className="error-text">{donationErrors.name}</span>}
               </div>
               <div className="form-group">
                 <label>Description *</label>
                 <textarea 
                   value={donationForm.description}
-                  onChange={(e) => setDonationForm({...donationForm, description: e.target.value})}
+                  onChange={(e) => handleDonationFieldChange('description', e.target.value)}
+                  className={donationErrors.description ? 'error' : ''}
                   required
                 />
+                {donationErrors.description && <span className="error-text">{donationErrors.description}</span>}
               </div>
               <div className="form-row">
                 <div className="form-group">
                   <label>Quantity *</label>
                   <input 
                     type="number"
+                    step="0.1"
+                    min = "0.1"
                     value={donationForm.quantity}
-                    onChange={(e) => setDonationForm({...donationForm, quantity: e.target.value})}
+                    onChange={(e) => handleDonationFieldChange('quantity', e.target.value)}
+                    className={donationErrors.quantity ? 'error' : ''}
                     required
                   />
+                  {donationErrors.quantity && <span className="error-text">{donationErrors.quantity}</span>}
                 </div>
                 <div className="form-group">
                   <label>Unit *</label>
@@ -809,18 +1367,23 @@ const handleHelpRequest = async (requestId) => {
                 <input 
                   type="date"
                   value={donationForm.expiryDate}
-                  onChange={(e) => setDonationForm({...donationForm, expiryDate: e.target.value})}
+                  onChange={(e) => handleDonationFieldChange('expiryDate', e.target.value)}
+                  className={donationErrors.expiryDate ? 'error' : ''}
                   required
                 />
+                {donationErrors.expiryDate && <span className="error-text">{donationErrors.expiryDate}</span>}
               </div>
               <div className="form-group">
                 <label>Pickup Address *</label>
                 <textarea 
                   value={donationForm.address}
-                  onChange={(e) => setDonationForm({...donationForm, address: e.target.value})}
-                  placeholder="Full address including city, postal code"
+                  onChange={(e) => handleDonationFieldChange('address', e.target.value)}
+                  placeholder="Format: House name, Town, City (e.g., 123 Main St, Dehiwala, Colombo)"
+                  className={donationErrors.address ? 'error' : ''}
                   required
                 />
+                {donationErrors.address && <span className="error-text">{donationErrors.address}</span>}
+                <small>Allowed cities: {ALLOWED_CITIES.join(', ')}</small>
               </div>
               <div className="form-group">
                 <label>Pickup Instructions</label>
@@ -852,19 +1415,23 @@ const handleHelpRequest = async (requestId) => {
                 <input 
                   type="text"
                   value={requestForm.requesterName}
-                  onChange={(e) => setRequestForm({...requestForm, requesterName: e.target.value})}
+                  onChange={(e) => handleRequestFieldChange('requesterName', e.target.value)}
+                  className={requestErrors.requesterName ? 'error' : ''}
                   required
                 />
+                {requestErrors.requesterName && <span className="error-text">{requestErrors.requesterName}</span>}
               </div>
               <div className="form-group">
                 <label>Organization/Target *</label>
                 <input 
                   type="text"
                   value={requestForm.targetOrganization}
-                  onChange={(e) => setRequestForm({...requestForm, targetOrganization: e.target.value})}
+                  onChange={(e) => handleRequestFieldChange('targetOrganization', e.target.value)}
                   placeholder="e.g., ABC Charity, XYZ Elder Home"
+                  className={requestErrors.targetOrganization ? 'error' : ''}
                   required
                 />
+                {requestErrors.targetOrganization && <span className="error-text">{requestErrors.targetOrganization}</span>}
               </div>
               <div className="form-row">
                 <div className="form-group">
@@ -901,64 +1468,73 @@ const handleHelpRequest = async (requestId) => {
                 <label>Purpose *</label>
                 <textarea 
                   value={requestForm.purpose}
-                  onChange={(e) => setRequestForm({...requestForm, purpose: e.target.value})}
+                  onChange={(e) => handleRequestFieldChange('purpose', e.target.value)}
                   placeholder="Why do you need this donation?"
+                  className={requestErrors.purpose ? 'error' : ''}
                   required
                 />
+                {requestErrors.purpose && <span className="error-text">{requestErrors.purpose}</span>}
               </div>
               <div className="form-group">
                 <label>Description *</label>
                 <textarea 
                   value={requestForm.description}
-                  onChange={(e) => setRequestForm({...requestForm, description: e.target.value})}
+                  onChange={(e) => handleRequestFieldChange('description', e.target.value)}
                   placeholder="Detailed description of your request"
+                  className={requestErrors.description ? 'error' : ''}
                   required
                 />
+                {requestErrors.description && <span className="error-text">{requestErrors.description}</span>}
               </div>
               <div className="form-group">
                 <label>Delivery Address *</label>
                 <textarea 
                   value={requestForm.location.address}
-                  onChange={(e) => setRequestForm({
-                    ...requestForm, 
-                    location: {...requestForm.location, address: e.target.value}
-                  })}
-                  placeholder="Full address where food should be delivered"
+                  onChange={(e) => handleRequestFieldChange('location.address', e.target.value)}
+                  placeholder="Format: House name, Town, City (e.g., 123 Main St, Dehiwala, Colombo)"
+                  className={requestErrors.address ? 'error' : ''}
                   required
                 />
+                {requestErrors.address && <span className="error-text">{requestErrors.address}</span>}
+                <small>Allowed cities: {ALLOWED_CITIES.join(', ')}</small>
               </div>
               <div className="form-group">
                 <label>Needed By *</label>
                 <input 
                   type="date"
                   value={requestForm.neededBy}
-                  onChange={(e) => setRequestForm({...requestForm, neededBy: e.target.value})}
+                  onChange={(e) => handleRequestFieldChange('neededBy', e.target.value)}
+                  className={requestErrors.neededBy ? 'error' : ''}
                   required
                 />
+                {requestErrors.neededBy && <span className="error-text">{requestErrors.neededBy}</span>}
               </div>
 
               {/* Requested Items */}
               <div className="form-group">
                 <label>Requested Items *</label>
+                {requestErrors.requestedItems && <span className="error-text">{requestErrors.requestedItems}</span>}
                 {requestForm.requestedItems.map((item, index) => (
                   <div key={index} className="requested-item-form">
                     <input 
                       type="text"
-                      placeholder="Item name"
+                      placeholder="Item name (letters and spaces only)"
                       value={item.itemName}
-                      onChange={(e) => updateRequestItem(index, 'itemName', e.target.value)}
+                      onChange={(e) => handleRequestItemChange(index, 'itemName', e.target.value)}
                       required
                     />
                     <input 
                       type="number"
+                      min="0.1"
+                      step="0.1"
                       placeholder="Quantity"
                       value={item.quantity}
-                      onChange={(e) => updateRequestItem(index, 'quantity', e.target.value)}
+                      onChange={(e) => handleRequestItemChange(index, 'quantity', e.target.value)}
                       required
                     />
                     <select 
                       value={item.unit}
-                      onChange={(e) => updateRequestItem(index, 'unit', e.target.value)}
+                      onChange={(e) => handleRequestItemChange(index, 'unit', e.target.value)}
                     >
                       <option value="kg">kg</option>
                       <option value="g">g</option>
@@ -971,7 +1547,7 @@ const handleHelpRequest = async (requestId) => {
                     </select>
                     <select 
                       value={item.priority}
-                      onChange={(e) => updateRequestItem(index, 'priority', e.target.value)}
+                      onChange={(e) => handleRequestItemChange(index, 'priority', e.target.value)}
                     >
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
@@ -992,25 +1568,24 @@ const handleHelpRequest = async (requestId) => {
                   <label>Phone *</label>
                   <input 
                     type="tel"
+                    placeholder="10 digits only"
                     value={requestForm.contactInfo.phone}
-                    onChange={(e) => setRequestForm({
-                      ...requestForm, 
-                      contactInfo: {...requestForm.contactInfo, phone: e.target.value}
-                    })}
+                    onChange={(e) => handleRequestFieldChange('contactInfo.phone', e.target.value)}
+                    className={requestErrors.phone ? 'error' : ''}
                     required
                   />
+                  {requestErrors.phone && <span className="error-text">{requestErrors.phone}</span>}
                 </div>
                 <div className="form-group">
                   <label>Email *</label>
                   <input 
                     type="email"
                     value={requestForm.contactInfo.email}
-                    onChange={(e) => setRequestForm({
-                      ...requestForm, 
-                      contactInfo: {...requestForm.contactInfo, email: e.target.value}
-                    })}
+                    onChange={(e) => handleRequestFieldChange('contactInfo.email', e.target.value)}
+                    className={requestErrors.email ? 'error' : ''}
                     required
                   />
+                  {requestErrors.email && <span className="error-text">{requestErrors.email}</span>}
                 </div>
               </div>
 
@@ -1026,8 +1601,10 @@ const handleHelpRequest = async (requestId) => {
                       ...requestForm, 
                       proofDocuments: Array.from(e.target.files)
                     })}
+                    className={requestErrors.proofDocuments ? 'error' : ''}
                     required
                   />
+                  {requestErrors.proofDocuments && <span className="error-text">{requestErrors.proofDocuments}</span>}
                   <small>Upload organization letter, registration certificate, or other proof documents</small>
                 </div>
               )}
@@ -1040,7 +1617,6 @@ const handleHelpRequest = async (requestId) => {
         </div>
       )}
     </div>
-    
   );
 };
 

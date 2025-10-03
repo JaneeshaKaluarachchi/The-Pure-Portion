@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import '../styles/Register.css';
@@ -8,6 +8,9 @@ const RestaurantRegister = () => {
   const navigate = useNavigate();
   const { register } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [particles, setParticles] = useState([]);
+  const [mousePosition, setMousePosition] = useState({ x: 50, y: 50 });
   const [error, setError] = useState('');
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -26,11 +29,116 @@ const RestaurantRegister = () => {
     confirmPassword: ''
   });
 
+  //Validation state
+  const [errors, setErrors] = useState({
+    restaurantName: '',
+    restaurantPhone: '',
+    businessRegistrationNo: '',
+    ownerFirstName: '',
+    ownerLastName: '',
+    ownerPhone: ''
+  });
+
+  // Initialize component with enhanced animations
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoaded(true);
+    }, 300);
+    
+    // Create enhanced floating particles
+    const timer2 = setTimeout(() => {
+      createEnhancedParticles();
+    }, 600);
+    
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(timer2);
+    };
+  }, []);
+
+  // Create enhanced floating particles
+  const createEnhancedParticles = () => {
+    const newParticles = [];
+    for (let i = 0; i < 15; i++) {
+      newParticles.push({
+        id: i,
+        left: Math.random() * 100,
+        animationDelay: Math.random() * 15,
+        animationDuration: Math.random() * 8 + 12,
+        size: Math.random() * 6 + 2,
+        opacity: Math.random() * 0.4 + 0.3
+      });
+    }
+    setParticles(newParticles);
+  };
+
+  // Enhanced mouse move effect
+  const handleMouseMove = useCallback((e) => {
+    const { clientX, clientY } = e;
+    const x = (clientX / window.innerWidth) * 100;
+    const y = (clientY / window.innerHeight) * 100;
+    
+    setMousePosition({ x, y });
+    
+    // Update CSS custom properties for interactive background
+    document.documentElement.style.setProperty('--mouse-x', `${x}%`);
+    document.documentElement.style.setProperty('--mouse-y', `${y}%`);
+  }, []);
+
   const handleChange = (e) => {
+    const fieldName = e.target.name;
+    const fieldValue = e.target.value;
+
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [fieldName]: fieldValue
     });
+
+    validateField(fieldName, fieldValue);
+  };
+
+  //create a validation handler
+  const validateField = (name, value) => {
+    let error = '';
+
+    switch (name) {
+      case 'restaurantName':
+        if (!/^[a-zA-Z\s]*$/.test(value)) {
+          error = "Only letters and spaces are allowed";
+        }
+        break;
+
+      case 'restaurantPhone':
+        if (!/^\d{10}$/.test(value)) {
+          error = "Phone must be exactly 10 digits (numbers only)";
+        }
+        break;
+
+      case 'businessRegistrationNo':
+        if (/[^a-zA-Z0-9\s]/.test(value)) {
+          error = "Special characters are not allowed";
+        }
+
+        break;
+
+      case 'ownerFirstName':
+      case 'ownerLastName':
+        if (!/^[a-zA-Z\s]*$/.test(value)) {
+          error = "Only letters and spaces are allowed";
+        }
+        break;
+
+      case 'ownerPhone':
+        if (!/^\d{10}$/.test(value)) {
+          error = "Phone must be exactly 10 digits (numbers only)";
+        }
+        break;
+
+      default:
+        break;
+    }
+
+    setErrors((prev) => ({ ...prev, [name]: error }));
   };
 
   const handleNext = (e) => {
@@ -56,7 +164,7 @@ const RestaurantRegister = () => {
     try {
       const { confirmPassword, ...dataToSend } = formData;
       await register(dataToSend, 'restaurant');
-      navigate('/login', { 
+      navigate('/login', {
         state: { message: 'Registration successful! Please login.' }
       });
     } catch (error) {
@@ -64,18 +172,34 @@ const RestaurantRegister = () => {
     }
     setLoading(false);
   };
-  
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 2000);
-    return () => clearTimeout(timer);
-  }, []);
 
   if (loading) {
     return <LoadingScreen />; // show spinner
   }
-  
+
   return (
-    <div className="register-container">
+    <div 
+      className={`register-container ${isLoaded ? 'loaded' : ''}`}
+      onMouseMove={handleMouseMove}
+    >
+      {/* Enhanced Floating Particles */}
+      <div className="particles-container">
+        {particles.map(particle => (
+          <div
+            key={particle.id}
+            className="floating-particle"
+            style={{
+              left: `${particle.left}%`,
+              animationDelay: `${particle.animationDelay}s`,
+              animationDuration: `${particle.animationDuration}s`,
+              width: `${particle.size}px`,
+              height: `${particle.size}px`,
+              opacity: particle.opacity
+            }}
+          />
+        ))}
+      </div>
+
       <div className="register-card">
         <h2>Restaurant & Catering Registration</h2>
         <div className="step-indicator">
@@ -88,18 +212,20 @@ const RestaurantRegister = () => {
         {step === 1 && (
           <form onSubmit={handleNext} className="register-form">
             <div className="form-group">
-              <label>Restaurant Name *</label>
+              <label className='formtext'>Restaurant Name *</label>
               <input
                 type="text"
                 name="restaurantName"
                 value={formData.restaurantName}
                 onChange={handleChange}
                 required
+                placeholder="Enter restaurant name"
               />
+              {errors.restaurantName && <small className="error-message">{errors.restaurantName}</small>}
             </div>
 
             <div className="form-group">
-              <label>Restaurant Type *</label>
+              <label className='formtext'>Restaurant Type *</label>
               <select
                 name="restaurantType"
                 value={formData.restaurantType}
@@ -117,36 +243,43 @@ const RestaurantRegister = () => {
             </div>
 
             <div className="form-group">
-              <label>Restaurant Address *</label>
+              <label className='formtext'>Restaurant Address *</label>
               <textarea
                 name="restaurantAddress"
                 value={formData.restaurantAddress}
                 onChange={handleChange}
                 rows="3"
                 required
+                placeholder="Enter complete restaurant address"
               />
             </div>
 
             <div className="form-group">
-              <label>Restaurant Phone *</label>
+              <label className='formtext'>Restaurant Phone *</label>
               <input
                 type="tel"
                 name="restaurantPhone"
                 value={formData.restaurantPhone}
                 onChange={handleChange}
                 required
+                placeholder="Enter 10-digit phone number"
               />
+              {errors.restaurantPhone && <small className="error-message">{errors.restaurantPhone}</small>}
             </div>
 
             <div className="form-group">
-              <label>Business Registration Number *</label>
+              <label className='formtext'>Business Registration Number *</label>
               <input
                 type="text"
                 name="businessRegistrationNo"
                 value={formData.businessRegistrationNo}
                 onChange={handleChange}
                 required
+                placeholder="Enter business registration number"
               />
+              {errors.businessRegistrationNo && (
+                <small className="error-message">{errors.businessRegistrationNo}</small>
+              )}
             </div>
 
             <button type="submit" className="register-btn">
@@ -159,73 +292,88 @@ const RestaurantRegister = () => {
           <form onSubmit={handleSubmit} className="register-form">
             <div className="form-row">
               <div className="form-group">
-                <label>Owner First Name *</label>
+                <label className='formtext'>Owner First Name *</label>
                 <input
                   type="text"
                   name="ownerFirstName"
                   value={formData.ownerFirstName}
                   onChange={handleChange}
                   required
+                  placeholder="First name"
                 />
+                {errors.ownerFirstName && (
+                  <small className="error-message">{errors.ownerFirstName}</small>
+                )}
               </div>
               <div className="form-group">
-                <label>Owner Last Name *</label>
+                <label className='formtext'>Owner Last Name *</label>
                 <input
                   type="text"
                   name="ownerLastName"
                   value={formData.ownerLastName}
                   onChange={handleChange}
                   required
+                  placeholder="Last name"
                 />
+                {errors.ownerLastName && (
+                  <small className="error-message">{errors.ownerLastName}</small>
+                )}
               </div>
             </div>
 
             <div className="form-group">
-              <label>Owner Phone *</label>
+              <label className='formtext'>Owner Phone *</label>
               <input
                 type="tel"
                 name="ownerPhone"
                 value={formData.ownerPhone}
                 onChange={handleChange}
                 required
+                placeholder="Enter 10-digit phone number"
               />
+              {errors.ownerPhone && (
+                <small className="error-message">{errors.ownerPhone}</small>
+              )}
             </div>
 
             <div className="form-group">
-              <label>Email *</label>
+              <label className='formtext'>Email *</label>
               <input
                 type="email"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
                 required
+                placeholder="Enter email address"
               />
             </div>
 
             <div className="form-row">
               <div className="form-group">
-                <label>Password *</label>
+                <label className='formtext'>Password *</label>
                 <input
                   type="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
                   required
+                  placeholder="Create password"
                 />
               </div>
               <div className="form-group">
-                <label>Confirm Password *</label>
+                <label className='formtext'>Confirm Password *</label>
                 <input
                   type="password"
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   required
+                  placeholder="Confirm password"
                 />
               </div>
             </div>
 
-            <div className="form-buttons">
+            <div className="form-buttons" >
               <button type="button" onClick={handleBack} className="back-btn">
                 Back
               </button>

@@ -16,7 +16,6 @@ const AdminDashboard = () => {
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'profile', label: 'Profile', icon: '👤' },
     { id: 'user-management', label: 'User Management', icon: '👥' },
     { id: 'leftover-management', label: 'Leftover Management', icon: '♻️' },
     { id: 'donation-requests', label: 'Donation Requests', icon: '🙏' },

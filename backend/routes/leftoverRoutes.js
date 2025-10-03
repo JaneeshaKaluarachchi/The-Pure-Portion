@@ -13,7 +13,8 @@ const {
   getPendingDonationRequests,
   approveLeftover,
   approveDonationRequest,
-  getDashboardStats
+  getDashboardStats,
+  generateDonationsPDF
 } = require('../controllers/leftoverController');
 const authMiddleware = require('../middleware/authMiddleware');
 
@@ -28,6 +29,8 @@ router.post('/request', authMiddleware, upload.array('proofDocuments', 5), creat
 router.get('/requests', authMiddleware, getDonationRequests);
 router.post('/requests/:requestId/fulfill', authMiddleware, fulfillDonationRequest);
 
+// PDF Report route
+router.get('/report/pdf', authMiddleware, generateDonationsPDF);
 
 // Admin routes
 router.get('/admin/stats', authMiddleware, getDashboardStats);

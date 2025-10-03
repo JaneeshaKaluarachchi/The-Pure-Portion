@@ -6,7 +6,7 @@
 
 .inventory-header {
   display: flex;
-  justify-content: between;
+  justify-content: space-between;
   align-items: center;
   margin-bottom: 30px;
 }
@@ -160,21 +160,25 @@
 }
 
 .modal-content {
-  background: white;
+  background: rgb(255, 255, 255);
   border-radius: 12px;
-  width: 95%;           /* increase from 90% */
-  max-width: 1200px;    /* increase max width */
+  width: 800px !important;
+  /* increase from 90% */
+  max-width: 1200px;
+  /* increase max width */
   max-height: 90vh;
   overflow-y: auto;
-  padding: 0;           /* padding handled inside form/modal-header */
+  padding: 0;
+  /* padding handled inside form/modal-header */
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 25px 40px; /* increase from 20px 30px */
-  border-bottom: 1px solid #ecf0f1;
+  padding: 25px 40px;
+  /* increase from 20px 30px */
+  border-bottom: 1px solid #000000;
 }
 
 
@@ -251,7 +255,7 @@
 
 /* Table */
 .inventory-table {
- 
+
   background: white;
   border-radius: 12px;
   overflow: hidden;
@@ -260,7 +264,7 @@
 }
 
 .inventory-table table {
-  width:100%;
+  width: 100%;
   border-collapse: collapse;
 }
 
@@ -275,7 +279,7 @@
 }
 
 .inventory-table td {
- padding: 10px;
+  padding: 10px;
   text-align: center;
   border-bottom: 1px solid #d2d2d2;
   font-size: 14px;
@@ -443,40 +447,40 @@
   .inventory-management {
     padding: 15px;
   }
-  
+
   .inventory-header {
     flex-direction: column;
     gap: 15px;
     align-items: stretch;
   }
-  
+
   .inventory-filters {
     flex-direction: column;
   }
-  
+
   .inventory-filters select,
   .inventory-filters input {
     min-width: auto;
   }
-  
+
   .modal-content {
     width: 95%;
     margin: 10px;
   }
-  
+
   .form-row {
     grid-template-columns: 1fr;
   }
-  
+
   .inventory-table {
     overflow-x: auto;
   }
-  
+
   .action-buttons {
     flex-direction: column;
     gap: 4px;
   }
-  
+
   .alerts-section {
     grid-template-columns: 1fr;
   }
@@ -486,57 +490,64 @@
   .inventory-stats {
     grid-template-columns: 1fr;
   }
-  
+
   .stat-card {
     padding: 20px;
   }
-  
+
   .stat-number {
     font-size: 24px;
   }
-  
+
   .inventory-table th,
   .inventory-table td {
     padding: 8px 6px;
     font-size: 12px;
   }
-  
+
   .modal-header {
     padding: 15px 20px;
   }
-  
+
   .inventory-form {
     padding: 20px;
   }
 }
+
 /* Base badge look */
 .inventory-table .status-badge {
   padding: 4px 10px;
   border-radius: 12px;
   font-size: 12px;
   font-weight: bold;
-  color: white !important; /* force text color */
+  color: white !important;
+  /* force text color */
   display: inline-block;
   text-transform: capitalize;
 }
 
 /* Unique color badges */
 .inventory-table .badge-in-stock {
-  background-color: #4caf50 !important; /* green */
+  background-color: #4caf50 !important;
+  /* green */
 }
 
 .inventory-table .badge-low-stock {
-  background-color: #ff9800 !important; /* orange */
+  background-color: #ff9800 !important;
+  /* orange */
 }
 
 .inventory-table .badge-out-stock {
-  background-color: #f44336 !important; /* red */
+  background-color: #f44336 !important;
+  /* red */
 }
 
 .inventory-table .badge-expired {
-  background-color: #3f51b5 !important; /* blue */
+  background-color: #3f51b5 !important;
+  /* blue */
 }
 
 .inventory-table .badge-default {
-  background-color: #9e9e9e !important; /* grey fallback */
+  background-color: #9e9e9e !important;
+  /* grey fallback */
 }

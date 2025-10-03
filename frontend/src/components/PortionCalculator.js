@@ -5,6 +5,7 @@ import LoadingScreen from "./LoadingScreen";
 import NotificationCenter from "./NotificationCenter";
 import "../styles/PortionCalculator.css";
 
+
 const PortionCalculator = () => {
   const { currentUser } = useAuth(); // Get user from AuthContext
   const [recipes, setRecipes] = useState([]);
@@ -18,6 +19,7 @@ const PortionCalculator = () => {
   const [generatedPlan, setGeneratedPlan] = useState(null);
   const [showResults, setShowResults] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchError, setSearchError] = useState("");
   const [notificationCount, setNotificationCount] = useState(0);
 
   // Plate portions state - only 5 curry spots + 1 main
@@ -36,6 +38,9 @@ const PortionCalculator = () => {
   const mealRecipes = recipes.filter((recipe) => recipe.category !== "curry");
 
   const curryRecipes = recipes.filter((recipe) => recipe.category === "curry");
+
+
+  
 
   // Group curries by subcategory
   const groupedCurries = curryRecipes.reduce((groups, curry) => {
@@ -58,6 +63,16 @@ const PortionCalculator = () => {
         .toLowerCase()
         .includes(searchTerm.toLowerCase())
   );
+  // Add this helper function
+const formatIngredientQuantity = (quantity, unit) => {
+  if (unit === "kg" && quantity < 1) {
+    return { displayQuantity: (quantity * 1000).toFixed(0), displayUnit: "g" };
+  } else if (unit === "l" && quantity < 1) {
+    return { displayQuantity: (quantity * 1000).toFixed(0), displayUnit: "ml" };
+  } else {
+    return { displayQuantity: quantity.toFixed(3), displayUnit: unit };
+  }
+};
 
   // Filter curries based on search term
   const filteredCurries = Object.keys(groupedCurries).reduce(
@@ -402,6 +417,20 @@ const handlePlanNameChange = (e) => {
   }
 };
 
+const handleSearchChange = (e) => {
+  const value = e.target.value;
+  setSearchTerm(value);
+
+  // Allow letters, numbers, spaces, parentheses ( and )
+  const regex = /^[a-zA-Z\s()]*$/;
+
+  if (!regex.test(value)) {
+    setSearchError("Search can only contain letters, spaces, and ( )");
+  } else {
+    setSearchError("");
+  }
+};
+
 const handlePeopleCountChange = (e) => {
   const value = parseInt(e.target.value, 10);
   setPeopleCount(value);
@@ -460,14 +489,16 @@ const handlePeopleCountChange = (e) => {
           <div className="recipe-selection">
             {/* Search Bar */}
             <div className="search-container">
-              <input
-                type="text"
-                className="search-bar"
-                placeholder="🔍 Search curries and meals..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+  <input
+    type="text"
+    className={`search-bar ${searchError ? "invalid-input" : ""}`}
+    placeholder="🔍 Search curries and meals..."
+    value={searchTerm}
+    onChange={handleSearchChange}
+  />
+  {searchError && <p className="error-text">{searchError}</p>}
+</div>
+
 
             {/* Main Meals Section */}
             <div className="recipe-section">
@@ -657,14 +688,22 @@ const handlePeopleCountChange = (e) => {
                 <span>Unit</span>
                 <span>Cost</span>
               </div>
-              {generatedPlan.totalIngredients.map((ingredient, index) => (
-                <div key={index} className="table-row">
-                  <span>{ingredient.itemName}</span>
-                  <span>{ingredient.totalQuantity.toFixed(3)}</span>
-                  <span>{ingredient.unit}</span>
-                  <span>Rs {ingredient.totalCost.toFixed(2)}</span>
-                </div>
-              ))}
+             {generatedPlan.totalIngredients.map((ingredient, index) => {
+  const { displayQuantity, displayUnit } = formatIngredientQuantity(
+    ingredient.totalQuantity,
+    ingredient.unit
+  );
+
+  return (
+    <div key={index} className="table-row">
+      <span>{ingredient.itemName}</span>
+      <span>{displayQuantity}</span>
+      <span>{displayUnit}</span>
+      <span>Rs {ingredient.totalCost.toFixed(2)}</span>
+    </div>
+  );
+})}
+
             </div>
           </div>
 

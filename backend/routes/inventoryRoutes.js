@@ -4,6 +4,7 @@ const PDFDocument = require('pdfkit');
 const Inventory = require('../models/Inventory');
 const fs = require('fs');
 const path = require('path');
+const User = require('../models/User');
 
 const {
   addInventoryItem,
@@ -29,6 +30,28 @@ router.get('/report/pdf', async (req, res) => {
     const filterStatus = req.query.status || 'all';
     const items = await Inventory.find();
     const now = new Date();
+
+    // Attempt to get DB user id from auth middleware
+    const userId = req.user?.id || req.user?._id || req.user?.userId;
+    // fetch user profile from DB (if available)
+    let user = null;
+    if (userId) {
+      user = await User.findById(userId).lean();
+    }
+
+    // Fallbacks for different possible schema field names
+    const restaurantName =
+      user?.restaurantName || user?.name || user?.businessName || 'Restaurant Name';
+    const restaurantAddress =
+      user?.address || user?.restaurantAddress || user?.location || 'Restaurant Address';
+    const restaurantPhone =
+      user?.restaurantPhone || user?.phoneNumber || user?.contactNumber || 'Phone Number';
+
+    console.log('PDF Restaurant Info:', {
+      name: restaurantName,
+      address: restaurantAddress,
+      phone: restaurantPhone
+    });
 
     const getItemStatus = (item) => {
       if (item.expiryDate && new Date(item.expiryDate) < now) return 'expired';
@@ -59,17 +82,28 @@ router.get('/report/pdf', async (req, res) => {
     doc.pipe(res);
 
     // Logo
-    const logoPath = path.join('D:', 'Pure_Portions', 'frontend', 'src', 'styles', 'images', '1.png');
+     const logoPath = path.join('D:', 'Pure_Portions', 'frontend', 'src', 'styles', 'images', '1.png');
     if (fs.existsSync(logoPath)) doc.image(logoPath, 40, 30, { width: 120 });
 
-    // Title & date
-    doc.fontSize(22).font('Helvetica-Bold').text('Inventory Report', 0, 40, { align: 'right' });
-    doc.fontSize(10).font('Helvetica').text(`Generated on: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`, { align: 'right' });
+
+    // Top-right restaurant info (positioned precisely so it won't overlap the logo)
+    const margin = 40;
+    const infoBoxWidth = 220;
+    const infoX = doc.page.width - margin - infoBoxWidth;
+    const infoY = 30;
+    doc.fontSize(12).font('Helvetica-Bold').text(restaurantName, infoX, infoY, { width: infoBoxWidth, align: 'right' });
+    doc.fontSize(10).font('Helvetica').text(restaurantAddress, infoX, infoY + 16, { width: infoBoxWidth, align: 'right' });
+    doc.text(`Phone: ${restaurantPhone}`, infoX, infoY + 34, { width: infoBoxWidth, align: 'right' });
+
+    // Title & date (moved down so it doesn't collide with the header)
+    const titleY = infoY + 80;
+    doc.fontSize(22).font('Helvetica-Bold').text('Inventory Report', 0, titleY, { align: 'center' });
+    doc.fontSize(8).font('Helvetica').text(`Generated on: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`, 0, titleY + 24, { align: 'center' });
     doc.moveDown(2);
 
     // Summary
     doc.fontSize(12).font('Helvetica-Bold').fillColor('#2c3e50');
-    doc.text(`Total Items: ${totalItems}   |   Total Quantity: ${totalQuantity.toFixed(2)}   |   Total Value: LKR ${totalValue.toFixed(2)}`, { align: 'center' });
+    doc.text(`Total Items: ${totalItems}   |   Total Quantity: ${totalQuantity.toFixed(2)}   |   Total Value: Rs ${totalValue.toFixed(2)}`, { align: 'center' });
     doc.moveDown(2);
 
     let y = doc.y;
@@ -86,7 +120,7 @@ router.get('/report/pdf', async (req, res) => {
         .text('Unit', 300, y)
         .text('Min Qty', 350, y, { width: 40, align: 'right' })
         .text('Status', 410, y)
-        .text('Value', 470, y, { width: 70, align: 'right' });
+        .text('Value(Rs)', 470, y, { width: 70, align: 'right' });
       y += rowHeight;
     };
 
@@ -122,7 +156,7 @@ router.get('/report/pdf', async (req, res) => {
         .fillColor(statusColor)
         .text(status.replace('-', ' '), 410, y)
         .fillColor('black')
-        .text(`LKR ${value.toFixed(2)}`, 470, y, { width: 70, align: 'right' });
+        .text(` ${value.toFixed(2)}`, 470, y, { width: 70, align: 'right' });
 
       y += rowActualHeight;
     };
@@ -136,6 +170,14 @@ router.get('/report/pdf', async (req, res) => {
       catItems.forEach((item, index) => drawItemRow(item, index % 2 === 0));
       y += 10;
     }
+
+    // Add manager signature section
+    doc.moveDown(4);
+    const signatureY = doc.page.height - 120;
+    doc.fontSize(12).font('Helvetica').fillColor('black');
+    doc.text("_____________________________", 60, signatureY);
+    doc.text("Inventory Manager's Signature", 80, signatureY + 15);
+
     doc.end();
   } catch (error) {
     console.error('Error generating PDF:', error);

@@ -1,8 +1,8 @@
 .portion-calculator {
   padding: 20px;
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  
   min-height: 100vh;
 }
 
@@ -58,7 +58,7 @@
 
 .calculator-content {
   display: grid;
-  grid-template-columns: 600px 1fr;
+  grid-template-columns: 820px 1fr;
   gap: 40px;
   min-height: 600px;
   align-items: start;
@@ -71,7 +71,6 @@
   display: flex;
   justify-content: center;
   align-items: center;
-
   border-radius: 16px;
   height: fit-content;
   z-index: 10;
@@ -106,13 +105,14 @@
 
 /* Plate itself - BIGGER SIZE WITH ANIMATION */
 .plate {
-  width: 650px;
-  height: 650px;
+  width: 800px;
+  height: 800px;
   background-image: url('./images/plate.png');
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
   position: relative;
+  margin-right: 10px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -149,8 +149,8 @@
 
 /* Center portion - main meal */
 .portion-area.center {
-  width: 220px;
-  height: 230px;
+  width: 260px;
+  height: 260px;
   top: 46%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -167,8 +167,8 @@
 
 /* Small portions - PERFECTLY ALIGNED IN CIRCLE */
 .portion-area.small {
-  width: 160px;
-  height: 160px;
+  width: 200px;
+  height: 200px;
   border: 3px dashed rgba(119, 160, 56, 0.6);
   border-radius: 50%;
   position: absolute;
@@ -194,26 +194,26 @@
 }
 
 .portion-area.curry2 {
-  top: 35%;
-  left: 82%;
+  top: 37%;
+  left: 79%;
   transform: translate(-50%, -50%);
 }
 
 .portion-area.curry3 {
   top: 72%;
-  left: 70%;
+  left: 67%;
   transform: translate(-50%, -50%);
 }
 
 .portion-area.curry4 {
-  top: 71%;
+  top: 69%;
   left: 30%;
   transform: translate(-50%, -50%);
 }
 
 .portion-area.curry5 {
   top: 35%;
-  left: 18%;
+  left: 22%;
   transform: translate(-50%, -50%);
 }
 
@@ -496,8 +496,8 @@
 }
 
 .recipe-thumb {
-  width: 140px;
-  height: 140px;
+  width: 150px;
+  height: 150px;
   border-radius: 50%;
   object-fit: cover;
   border: 3px solid #77a038;

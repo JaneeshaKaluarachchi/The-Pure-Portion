@@ -13,10 +13,19 @@
 }
 
 .loading-spinner {
-  width: 100px;   /* adjust size */
-  height: 100px;  
-  animation: spin 1.5s linear infinite; /* 👈 rotate the PNG */
+  width: 500px !important;
+  height: 500px !important;
   margin-bottom: 15px;
+
+  /* Remove any external styling */
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  object-fit: contain;
+
+  /* Stop any CSS rotation */
+  animation: none !important;
 }
 
 @keyframes spin {
@@ -25,6 +34,7 @@
 }
 
 .loading-container p {
+  
   font-size: 1.2rem;
   color: #333;
 }
