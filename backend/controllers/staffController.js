@@ -117,11 +117,48 @@ const updateStaff = async (req, res) => {
       if (fs.existsSync(oldImagePath)) fs.unlinkSync(oldImagePath);
     }
 
-    const updatedData = parseStaffData(req.body, req.file, req.user.userId);
-    const updatedStaff = await Staff.findByIdAndUpdate(staffId, { ...updatedData, updatedAt: Date.now() }, { new: true, runValidators: true });
+    // Check if this is a partial finance update (only salary, salaryType, bankDetails)
+    const isFinanceUpdate = req.body.salary !== undefined && 
+                           !req.body.firstName && 
+                           !req.body.email;
+
+    let updatedData;
+    if (isFinanceUpdate) {
+      // Handle partial finance update
+      updatedData = {
+        updatedAt: Date.now()
+      };
+      
+      if (req.body.salary !== undefined) {
+        updatedData.salary = Number(req.body.salary);
+      }
+      
+      if (req.body.salaryType) {
+        updatedData.salaryType = req.body.salaryType;
+      }
+      
+      if (req.body.bankDetails) {
+        updatedData.bankDetails = {
+          accountNumber: req.body.bankDetails.accountNumber || staff.bankDetails?.accountNumber || '',
+          bankName: req.body.bankDetails.bankName || staff.bankDetails?.bankName || '',
+          branchCode: req.body.bankDetails.branchCode || staff.bankDetails?.branchCode || ''
+        };
+      }
+    } else {
+      // Handle full staff update
+      updatedData = parseStaffData(req.body, req.file, req.user.userId);
+      updatedData.updatedAt = Date.now();
+    }
+
+    const updatedStaff = await Staff.findByIdAndUpdate(
+      staffId, 
+      updatedData, 
+      { new: true, runValidators: true }
+    );
 
     res.json({ message: 'Staff member updated successfully', staff: updatedStaff });
   } catch (error) {
+    console.error('Update staff error:', error);
     if (req.file && fs.existsSync(path.join('uploads/staff-images', req.file.filename))) {
       fs.unlinkSync(path.join('uploads/staff-images', req.file.filename));
     }

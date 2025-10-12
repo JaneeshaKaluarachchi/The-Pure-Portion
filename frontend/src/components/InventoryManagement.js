@@ -26,6 +26,9 @@ const InventoryManagement = () => {
     operation: "",
   });
   const [notificationCount, setNotificationCount] = useState(0);
+  const [nameSuggestions, setNameSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState(null);
 
   const categories = [
     "vegetables",
@@ -172,6 +175,50 @@ const InventoryManagement = () => {
     fetchItems();
     fetchStats();
   }, [fetchItems, fetchStats]);
+
+  // Handle name input change with autocomplete
+  const handleNameChange = (value) => {
+    setFormData({ ...formData, name: value });
+    validateName(value, "name");
+
+    // Show suggestions if there's input
+    if (value.trim().length > 0) {
+      const filtered = items.filter((item) =>
+        item.name.toLowerCase().includes(value.toLowerCase())
+      );
+      setNameSuggestions(filtered);
+      setShowSuggestions(true);
+
+      // Check for exact duplicate (case-insensitive)
+      const exactMatch = items.find(
+        (item) => 
+          item.name.toLowerCase() === value.toLowerCase() && 
+          (!editingItem || item._id !== editingItem._id) // Exclude current item when editing
+      );
+      
+      if (exactMatch) {
+        setDuplicateWarning(exactMatch);
+      } else {
+        setDuplicateWarning(null);
+      }
+    } else {
+      setNameSuggestions([]);
+      setShowSuggestions(false);
+      setDuplicateWarning(null);
+    }
+  };
+
+  // Select suggestion
+  const handleSuggestionClick = (suggestion) => {
+    setFormData({ ...formData, name: suggestion.name });
+    setShowSuggestions(false);
+    setNameSuggestions([]);
+    
+    // Show duplicate warning
+    if (!editingItem || suggestion._id !== editingItem._id) {
+      setDuplicateWarning(suggestion);
+    }
+  };
 
   // ADDED: Validation functions
   const validateName = (value, field = "name") => {
@@ -373,6 +420,9 @@ const InventoryManagement = () => {
     });
     setEditingItem(null);
     setShowAddForm(false);
+    setNameSuggestions([]);
+    setShowSuggestions(false);
+    setDuplicateWarning(null);
   };
 
   const getStatusBadge = (status) => {
@@ -534,18 +584,62 @@ const InventoryManagement = () => {
 
             <form onSubmit={handleSubmit} className="inventory-form">
               <div className="form-row">
-                <div className="form-group">
+                <div className="form-group autocomplete-wrapper">
                   <label>Item Name *</label>
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={(e) => {
-                      setFormData({ ...formData, name: e.target.value });
-                      validateName(e.target.value, "name");
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    onFocus={() => {
+                      if (formData.name.trim().length > 0) {
+                        setShowSuggestions(true);
+                      }
+                    }}
+                    onBlur={() => {
+                      // Delay to allow click on suggestion
+                      setTimeout(() => setShowSuggestions(false), 200);
                     }}
                     required
+                    autoComplete="off"
                   />
-                  {formErrors.name && <p className="error-message">{formErrors.name}</p>} {/* ADDED */}
+                  
+                  {/* Autocomplete suggestions */}
+                  {showSuggestions && nameSuggestions.length > 0 && (
+                    <div className="autocomplete-suggestions">
+                      {nameSuggestions.slice(0, 5).map((item) => (
+                        <div
+                          key={item._id}
+                          className="suggestion-item"
+                          onClick={() => handleSuggestionClick(item)}
+                        >
+                          <span className="suggestion-name">{item.name}</span>
+                          <span className="suggestion-category">
+                            {item.category} - {item.currentQuantity} {item.unit}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Duplicate warning */}
+                  {duplicateWarning && (
+                    <div className="duplicate-warning">
+                      ⚠️ <strong>"{duplicateWarning.name}"</strong> already exists in inventory!
+                      <br />
+                      <button
+                        type="button"
+                        className="btn-edit-existing"
+                        onClick={() => {
+                          handleEdit(duplicateWarning);
+                          setDuplicateWarning(null);
+                        }}
+                      >
+                        Edit Existing Item
+                      </button>
+                    </div>
+                  )}
+                  
+                  {formErrors.name && <p className="error-message">{formErrors.name}</p>}
 
                 </div>
                 <div className="form-group">

@@ -132,7 +132,7 @@
   display: flex;
   gap: 10px;
   margin-bottom: 30px;
-  border-bottom: 3px solid #77a038!important;
+  border-bottom: 3px solid #77a038;
 }
 
 .leftover-management .tab-navigation {
@@ -141,31 +141,31 @@
 }
 
 .tab-btn {
-  background: #77a038!important;
-  border: #77a038!important;
+  background: #77a038;
+  border: #77a038;
   padding: 12px 20px;
   cursor: pointer;
   font-size: 16px;
-  border-bottom: 3px solid transparent!important;
+  border-bottom: 3px solid transparent;
   transition: all 0.3s ease;
   font-weight: 600;
-  color: #e9ecef!important;
+  color: #e9ecef;
 }
 
 .leftover-management .tab-btn {
-  border-bottom: 3px solid #77a038!important;
-  white-space: nowrap!important;
+  border-bottom: 3px solid #77a038;
+  white-space: nowrap;
 }
 
 .tab-btn.active {
-  color: #000000!important;
-  border-bottom-color: #f7bb14!important;
+  color: #000000;
+  border-bottom-color: #f7bb14;
   font-weight: 700;
-  background: rgba(247, 187, 20, 0.1)!important;
+  background: rgba(247, 187, 20, 0.1);
 }
 
 .tab-btn:hover {
-  color: #000000!important;
+  color: #000000;
   background: rgba(119, 160, 56, 0.1);
 }
 
@@ -942,11 +942,11 @@
 }
 
 .modal {
-  background:transparent !important ;
+  background:transparent  ;
   border-radius: 16px;
   width: 90%;
   max-width: 700px;
-  height: 900px !important;
+  height: 900px ;
   overflow-y: auto;
 }
 
@@ -962,7 +962,7 @@
   height: 90px;
   border-bottom: 3px solid #77a038;
   border-radius:20px 20px 0px 0px;
-  background: #ffffff !important;
+  background: #ffffff ;
 }
 .header-title {
   display: flex;
@@ -978,7 +978,7 @@
 }
 .modal-header h3 {
   margin: 0;
-  color: #000000 !important;
+  color: #000000 ;
   font-size: 24px;
   font-weight: 700;
 }
@@ -988,7 +988,7 @@
   border: none;
   font-size: 28px;
   cursor: pointer;
-  color: #77a038 !important;
+  color: #77a038 ;
   padding: 0;
   width: 40px;
   height: 40px;
@@ -1000,7 +1000,7 @@
 }
 
 .modal-header button:hover {
-  background: #ee5a52 !important;
+  background: #ee5a52 ;
   color: white;
   transform: scale(1.1);
 }

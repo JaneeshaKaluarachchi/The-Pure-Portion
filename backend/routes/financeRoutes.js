@@ -13,7 +13,10 @@ const {
   getFinanceSummary,
   getFinanceRecords,
   getStaffPerformanceData,
-  generateFinanceReport
+  generateFinanceReport,
+  getStaffPaymentHistory,
+  generatePaymentReceipt,
+  generatePaymentHistoryPDF
 } = require('../controllers/financeController');
 const auth = require('../middleware/auth');
 const FinanceRecord = require('../models/FinanceRecord'); // import model once at the top
@@ -53,6 +56,11 @@ router.post('/records', auth, addFinanceRecord);
 // Staff payments and bonuses
 router.post('/staff-payment', auth, processStaffPayment);
 router.post('/bonus', auth, giveBonus);
+
+// Staff payment history and receipts
+router.get('/staff-payments/:staffId', auth, getStaffPaymentHistory);
+router.get('/payment-receipt/:paymentId', auth, generatePaymentReceipt);
+router.get('/payment-history-pdf/:staffId', auth, generatePaymentHistoryPDF);
 
 // Loans
 router.post('/loans', auth, createStaffLoan);

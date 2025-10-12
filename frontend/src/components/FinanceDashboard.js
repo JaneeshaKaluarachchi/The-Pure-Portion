@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import "../styles/FinanceDashboard.css";
 import StaffTileSelector from "./StaffTileSelector";
 import LoadingScreen from "./LoadingScreen";
+import StaffFinanceManagement from "./StaffFinanceManagement";
 
 const FinanceDashboard = () => {
+  const navigate = useNavigate();
   const [amountError, setAmountError] = useState("");
   const [dailyProfit, setDailyProfit] = useState(null);
   const [monthlyProfit, setMonthlyProfit] = useState(null);
@@ -19,6 +22,7 @@ const FinanceDashboard = () => {
   const [showBonusCalculator, setShowBonusCalculator] = useState(false);
   const [showStaffPayment, setShowStaffPayment] = useState(false);
   const [showLoanForm, setShowLoanForm] = useState(false);
+  const [showStaffFinanceModal, setShowStaffFinanceModal] = useState(false);
   const [loadingOvertimeData, setLoadingOvertimeData] = useState(false);
   const [errors, setErrors] = useState({
     basicSalary: "",
@@ -66,6 +70,18 @@ const FinanceDashboard = () => {
     purpose: "",
   });
 
+  // Portion Plan States
+  const [showPortionPlanModal, setShowPortionPlanModal] = useState(false);
+  const [executedPortionPlans, setExecutedPortionPlans] = useState([]);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [profitMargin, setProfitMargin] = useState(40);
+  const [customProfit, setCustomProfit] = useState("");
+  const [addedPortionPlanIds, setAddedPortionPlanIds] = useState(() => {
+    // Load from localStorage on component mount
+    const saved = localStorage.getItem('addedPortionPlanIds');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const categoryOptions = {
     income: ["sales", "catering", "delivery", "other_income"],
     expense: [
@@ -85,7 +101,13 @@ const FinanceDashboard = () => {
   useEffect(() => {
     fetchFinanceData();
     fetchStaffList();
-  }, []);
+    fetchExecutedPortionPlans();
+  }, [addedPortionPlanIds]);
+
+  // Save addedPortionPlanIds to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('addedPortionPlanIds', JSON.stringify(addedPortionPlanIds));
+  }, [addedPortionPlanIds]);
 
   const fetchStaffList = async () => {
     try {
@@ -96,6 +118,22 @@ const FinanceDashboard = () => {
       setStaffList(res.data.staff || []);
     } catch (err) {
       console.error("Error fetching staff list:", err);
+    }
+  };
+
+  const fetchExecutedPortionPlans = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get("http://localhost:5000/api/portions", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      // Filter only executed plans that haven't been added yet
+      const executed = (res.data.plans || []).filter(
+        plan => plan.isInventoryDeducted && !addedPortionPlanIds.includes(plan._id)
+      );
+      setExecutedPortionPlans(executed);
+    } catch (err) {
+      console.error("Error fetching portion plans:", err);
     }
   };
 
@@ -181,7 +219,6 @@ const FinanceDashboard = () => {
     }
   };
 
-  
   const handleNumberChange = (field, value) => {
     const numberRegex = /^[0-9]*\.?[0-9]*$/;
 
@@ -491,6 +528,53 @@ const FinanceDashboard = () => {
     fetchFinanceData();
   };
 
+  const handlePortionPlanSelect = (plan) => {
+    setSelectedPlan(plan);
+    setProfitMargin(40); // Default 40%
+    setCustomProfit("");
+  };
+
+  const calculateSellingPrice = () => {
+    if (!selectedPlan) return 0;
+    const margin = customProfit !== "" ? parseFloat(customProfit) : profitMargin;
+    const cost = selectedPlan.totalCost || 0;
+    return cost + (cost * margin / 100);
+  };
+
+  const calculateProfit = () => {
+    if (!selectedPlan) return 0;
+    const margin = customProfit !== "" ? parseFloat(customProfit) : profitMargin;
+    const cost = selectedPlan.totalCost || 0;
+    return cost * margin / 100;
+  };
+
+  const addPortionPlanToRecord = () => {
+    if (!selectedPlan) return;
+
+    const sellingPrice = calculateSellingPrice();
+    const profit = calculateProfit();
+    const margin = customProfit !== "" ? customProfit : profitMargin;
+
+    setRecordForm({
+      type: "income",
+      category: "sales",
+      amount: sellingPrice.toFixed(2),
+      description: `${selectedPlan.name} (${selectedPlan.peopleCount} ppl, +${margin}% profit)`,
+      staffId: "",
+    });
+
+    // Mark this plan as added so it won't appear again
+    setAddedPortionPlanIds(prev => [...prev, selectedPlan._id]);
+
+    setShowPortionPlanModal(false);
+    setSelectedPlan(null);
+    setProfitMargin(40);
+    setCustomProfit("");
+
+    // Show success notification
+    alert(`✅ ${selectedPlan.name} added to record with ${margin}% profit margin!`);
+  };
+
   if (loading) return <LoadingScreen />;
 
   const formatLKR = (value) =>
@@ -500,78 +584,149 @@ const FinanceDashboard = () => {
 
   return (
     <div className="finance-dashboard">
-      <h2>📊 Finance Dashboard</h2>
-      {error && <div className="error-message">{error}</div>}
+      {/* Header Section */}
+      <div className="dashboard-header">
+        <div className="header-content">
+          <h1 className="dashboard-title">
+            <span className="icon-wrapper">💳</span>
+            Finance Dashboard
+          </h1>
+          <p className="dashboard-subtitle">Manage your restaurant's financial operations</p>
+        </div>
+        <div className="header-actions">
+          <button className="refresh-btn" onClick={resetDashboard}>
+            <span className="btn-icon">🔄</span>
+            Refresh
+          </button>
+          <button className="pdf-btn" onClick={downloadPDFReport}>
+            <span className="btn-icon">📄</span>
+            Export PDF
+          </button>
+        </div>
+      </div>
 
-      {/* Summary Cards */}
+      {error && (
+        <div className="error-message">
+          <span className="error-icon">⚠️</span>
+          {error}
+        </div>
+      )}
+
+      {/* Summary Cards - Enhanced Design */}
       <div className="summary-cards">
-        <div className="card">
-          <h4>Today's Profit</h4>
-          <p
-            className={dailyProfit?.data?.profit >= 0 ? "positive" : "negative"}
-          >
-            {formatLKR(dailyProfit?.data?.profit)}
-          </p>
-          <small>Income: {formatLKR(dailyProfit?.data?.totalIncome)}</small>
-          <small>Expenses: {formatLKR(dailyProfit?.data?.totalExpenses)}</small>
+        <div className={`card ${dailyProfit?.data?.profit >= 0 ? 'card-success' : 'card-danger'}`}>
+          <div className="card-icon">📈</div>
+          <div className="card-content">
+            <h4>Today's Profit</h4>
+            <p className={dailyProfit?.data?.profit >= 0 ? "positive" : "negative"}>
+              {formatLKR(dailyProfit?.data?.profit)}
+            </p>
+            <div className="card-details">
+              <span className="detail-item">
+                <span className="detail-label">Income:</span>
+                <span className="detail-value income">{formatLKR(dailyProfit?.data?.totalIncome)}</span>
+              </span>
+              <span className="detail-item">
+                <span className="detail-label">Expenses:</span>
+                <span className="detail-value expense">{formatLKR(dailyProfit?.data?.totalExpenses)}</span>
+              </span>
+            </div>
+          </div>
         </div>
-        <div className="card">
-          <h4>Monthly Profit</h4>
-          <p
-            className={
-              monthlyProfit?.data?.profit >= 0 ? "positive" : "negative"
-            }
-          >
-            {formatLKR(monthlyProfit?.data?.profit)}
-          </p>
-          <small>Income: {formatLKR(monthlyProfit?.data?.totalIncome)}</small>
-          <small>
-            Expenses: {formatLKR(monthlyProfit?.data?.totalExpenses)}
-          </small>
+
+        <div className={`card ${monthlyProfit?.data?.profit >= 0 ? 'card-success' : 'card-danger'}`}>
+          <div className="card-icon">📊</div>
+          <div className="card-content">
+            <h4>Monthly Profit</h4>
+            <p className={monthlyProfit?.data?.profit >= 0 ? "positive" : "negative"}>
+              {formatLKR(monthlyProfit?.data?.profit)}
+            </p>
+            <div className="card-details">
+              <span className="detail-item">
+                <span className="detail-label">Income:</span>
+                <span className="detail-value income">{formatLKR(monthlyProfit?.data?.totalIncome)}</span>
+              </span>
+              <span className="detail-item">
+                <span className="detail-label">Expenses:</span>
+                <span className="detail-value expense">{formatLKR(monthlyProfit?.data?.totalExpenses)}</span>
+              </span>
+            </div>
+          </div>
         </div>
-        <div className="card">
-          <h4>Today's Income</h4>
-          <p className="positive">
-            {formatLKR(summary?.summary?.today?.income)}
-          </p>
+
+        <div className="card card-info">
+          <div className="card-icon">💵</div>
+          <div className="card-content">
+            <h4>Today's Income</h4>
+            <p className="positive">
+              {formatLKR(summary?.summary?.today?.income)}
+            </p>
+            <div className="card-footer">
+              <span className="trend-up">↗ Income Stream</span>
+            </div>
+          </div>
         </div>
-        <div className="card">
-          <h4>Today's Expenses</h4>
-          <p className="negative">
-            {formatLKR(summary?.summary?.today?.expenses)}
-          </p>
+
+        <div className="card card-warning">
+          <div className="card-icon">💳</div>
+          <div className="card-content">
+            <h4>Today's Expenses</h4>
+            <p className="negative">
+              {formatLKR(summary?.summary?.today?.expenses)}
+            </p>
+            <div className="card-footer">
+              <span className="trend-down">↘ Outgoing</span>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Staff Payment Modal */}
       {showStaffPayment && (
         <div className="modal-overlay">
-          <div className="modal">
-            <h3>💰 Process Staff Payment</h3>
+          <div className="modal payment-modal">
+            <div className="modal-header">
+              <h3>💰 Process Staff Payment</h3>
+            </div>
             <form onSubmit={processStaffPayment}>
-              <div className="staff-selector">
-                <label>Select Staff:</label>
-                <div className="staff-tiles">
+              <div className="staff-selector-clean">
+                <label className="section-label">Select Staff Member</label>
+                <div className="staff-list-clean">
                   {staffList.map((staff) => (
                     <div
                       key={staff._id}
-                      className={`staff-tile ${
+                      className={`staff-card-clean ${
                         paymentForm.staffId === staff._id ? "selected" : ""
                       }`}
                       onClick={() => handleStaffSelection(staff._id)}
                     >
-                      <img
-                        src={staff.photoUrl || "https://via.placeholder.com/80"}
-                        alt={`${staff.firstName} ${staff.lastName}`}
-                        className="staff-photo"
-                      />
-                      <div className="staff-details">
-                        <strong>
-                          {staff.firstName} {staff.lastName}
-                        </strong>
-                        <small>{staff.position}</small>
-                        <small>Salary: {formatLKR(staff.salary)}</small>
+                      <div className="staff-photo-clean">
+                        {staff.profileImage ? (
+                          <img
+                            src={`http://localhost:5000/uploads/staff-images/${staff.profileImage}`}
+                            alt={`${staff.firstName} ${staff.lastName}`}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className="default-avatar-clean" 
+                          style={{ display: staff.profileImage ? 'none' : 'flex' }}
+                        >
+                          {staff.firstName.charAt(0)}{staff.lastName.charAt(0)}
+                        </div>
                       </div>
+                      <div className="staff-info-clean">
+                        <h4 className="staff-name">{staff.firstName} {staff.lastName}</h4>
+                        <p className="staff-position">{staff.position}</p>
+                        <p className="staff-department">{staff.department || 'General'}</p>
+                        <p className="staff-salary">Base Salary: {formatLKR(staff.salary)}</p>
+                      </div>
+                      {paymentForm.staffId === staff._id && (
+                        <div className="selected-indicator">✓</div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -635,7 +790,6 @@ const FinanceDashboard = () => {
               </div>
 
               <div className="form-row">
-
                 <div className="form-group">
                   <label>Allowances (LKR):</label>
                   <input
@@ -743,16 +897,18 @@ const FinanceDashboard = () => {
       {/* Bonus Calculator Modal */}
       {showBonusCalculator && (
         <div className="modal-overlay">
-          <div className="modal">
-            <h3>🎁 Bonus Calculator</h3>
+          <div className="modal payment-modal">
+            <div className="modal-header">
+              <h3>🎁 Bonus Calculator</h3>
+            </div>
             <form onSubmit={giveBonus}>
-              <div className="staff-selector">
-                <label>Select Staff:</label>
-                <div className="staff-tiles">
+              <div className="staff-selector-clean">
+                <label className="section-label">Select Staff Member</label>
+                <div className="staff-list-clean">
                   {staffList.map((staff) => (
                     <div
                       key={staff._id}
-                      className={`staff-tile ${
+                      className={`staff-card-clean ${
                         bonusForm.staffId === staff._id ? "selected" : ""
                       }`}
                       onClick={() => {
@@ -766,17 +922,33 @@ const FinanceDashboard = () => {
                         }
                       }}
                     >
-                      <img
-                        src={staff.photoUrl || "https://via.placeholder.com/80"}
-                        alt={`${staff.firstName} ${staff.lastName}`}
-                        className="staff-photo"
-                      />
-                      <div className="staff-details">
-                        <strong>
-                          {staff.firstName} {staff.lastName}
-                        </strong>
-                        <small>{staff.position}</small>
+                      <div className="staff-photo-clean">
+                        {staff.profileImage ? (
+                          <img
+                            src={`http://localhost:5000/uploads/staff-images/${staff.profileImage}`}
+                            alt={`${staff.firstName} ${staff.lastName}`}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className="default-avatar-clean" 
+                          style={{ display: staff.profileImage ? 'none' : 'flex' }}
+                        >
+                          {staff.firstName.charAt(0)}{staff.lastName.charAt(0)}
+                        </div>
                       </div>
+                      <div className="staff-info-clean">
+                        <h4 className="staff-name">{staff.firstName} {staff.lastName}</h4>
+                        <p className="staff-position">{staff.position}</p>
+                        <p className="staff-department">{staff.department || 'General'}</p>
+                        <p className="staff-salary">Base Salary: {formatLKR(staff.salary)}</p>
+                      </div>
+                      {bonusForm.staffId === staff._id && (
+                        <div className="selected-indicator">✓</div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -810,31 +982,31 @@ const FinanceDashboard = () => {
 
               {bonusForm.calculationType === "fixed" ? (
                 <div className="form-group">
-    <label>Fixed Amount (LKR):</label>
-    <input
-      type="text" // changed from number to text for better regex validation
-      value={bonusForm.fixedAmount}
-      onChange={(e) => {
-        const value = e.target.value;
-        const numberRegex = /^[0-9]*\.?[0-9]*$/;
+                  <label>Fixed Amount (LKR):</label>
+                  <input
+                    type="text" // changed from number to text for better regex validation
+                    value={bonusForm.fixedAmount}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const numberRegex = /^[0-9]*\.?[0-9]*$/;
 
-        if (value === "" || numberRegex.test(value)) {
-          setBonusForm({ ...bonusForm, fixedAmount: value });
-          setErrors((prev) => ({ ...prev, fixedAmount: "" }));
-        } else {
-          setErrors((prev) => ({
-            ...prev,
-            fixedAmount: "⚠ Please enter a valid number",
-          }));
-        }
-      }}
-      className={errors.fixedAmount ? "input-error" : ""}
-      required
-    />
-    {errors.fixedAmount && (
-      <p className="error-text">{errors.fixedAmount}</p>
-    )}
-  </div>
+                      if (value === "" || numberRegex.test(value)) {
+                        setBonusForm({ ...bonusForm, fixedAmount: value });
+                        setErrors((prev) => ({ ...prev, fixedAmount: "" }));
+                      } else {
+                        setErrors((prev) => ({
+                          ...prev,
+                          fixedAmount: "⚠ Please enter a valid number",
+                        }));
+                      }
+                    }}
+                    className={errors.fixedAmount ? "input-error" : ""}
+                    required
+                  />
+                  {errors.fixedAmount && (
+                    <p className="error-text">{errors.fixedAmount}</p>
+                  )}
+                </div>
               ) : (
                 <>
                   <div className="form-row">
@@ -843,7 +1015,7 @@ const FinanceDashboard = () => {
                       <select
                         value={bonusForm.month}
                         onChange={(e) =>
-                          setBonusForm({ ...bonusForm, month: e.target.value })
+                          setBonusForm({ ...bonusForm, month: parseInt(e.target.value, 10) })
                         }
                       >
                         {Array.from({ length: 12 }, (_, i) => (
@@ -861,7 +1033,7 @@ const FinanceDashboard = () => {
                         type="number"
                         value={bonusForm.year}
                         onChange={(e) =>
-                          setBonusForm({ ...bonusForm, year: e.target.value })
+                          setBonusForm({ ...bonusForm, year: parseInt(e.target.value, 10) })
                         }
                         min="2020"
                         max="2030"
@@ -870,33 +1042,37 @@ const FinanceDashboard = () => {
                   </div>
 
                   <div className="form-group">
-  <label>
-    Rate per{" "}
-    {bonusForm.calculationType === "attendance" ? "Day" : "Hour"} (LKR):
-  </label>
-  <input
-    type="text" // Use text to apply regex validation
-    value={bonusForm.ratePerUnit}
-    onChange={(e) => {
-      const value = e.target.value;
-      const numberRegex = /^[0-9]*\.?[0-9]*$/; // allows decimals
+                    <label>
+                      Rate per{" "}
+                      {bonusForm.calculationType === "attendance"
+                        ? "Day"
+                        : "Hour"}{" "}
+                      (LKR):
+                    </label>
+                    <input
+                      type="text" // Use text to apply regex validation
+                      value={bonusForm.ratePerUnit}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const numberRegex = /^[0-9]*\.?[0-9]*$/; // allows decimals
 
-      if (value === "" || numberRegex.test(value)) {
-        setBonusForm({ ...bonusForm, ratePerUnit: value });
-        setErrors((prev) => ({ ...prev, ratePerUnit: "" }));
-      } else {
-        setErrors((prev) => ({
-          ...prev,
-          ratePerUnit: "⚠ Please enter a valid number",
-        }));
-      }
-    }}
-    className={errors.ratePerUnit ? "input-error" : ""}
-    required
-  />
-  {errors.ratePerUnit && <p className="error-text">{errors.ratePerUnit}</p>}
-</div>
-
+                        if (value === "" || numberRegex.test(value)) {
+                          setBonusForm({ ...bonusForm, ratePerUnit: value });
+                          setErrors((prev) => ({ ...prev, ratePerUnit: "" }));
+                        } else {
+                          setErrors((prev) => ({
+                            ...prev,
+                            ratePerUnit: "⚠ Please enter a valid number",
+                          }));
+                        }
+                      }}
+                      className={errors.ratePerUnit ? "input-error" : ""}
+                      required
+                    />
+                    {errors.ratePerUnit && (
+                      <p className="error-text">{errors.ratePerUnit}</p>
+                    )}
+                  </div>
 
                   {staffPerformanceData && (
                     <div className="performance-display">
@@ -967,51 +1143,93 @@ const FinanceDashboard = () => {
         </div>
       )}
 
-      {/* Additional Summary Info */}
+      {/* Additional Summary Info - Compact */}
       {summary?.summary && (
-        <div className="additional-summary">
-          <div className="summary-section">
-            <h4>📋 Staff Finance</h4>
-            <p>Total Staff: {summary.summary.staff?.totalStaff || 0}</p>
-            <p>
-              Monthly Salary Budget:{" "}
-              {formatLKR(summary.summary.staff?.monthlySalaryBudget)}
-            </p>
+        <div className="additional-summary-compact">
+          <div 
+            className="summary-item clickable" 
+            onClick={() => setShowStaffFinanceModal(true)}
+            title="Click to view staff finance management"
+          >
+            <span className="summary-icon">👥</span>
+            <div className="summary-info">
+              <span className="summary-label">Total Staff</span>
+              <span className="summary-value">{summary.summary.staff?.totalStaff || 0}</span>
+            </div>
+            <span className="arrow-icon">→</span>
           </div>
-          <div className="summary-section">
-            <h4>📦 Inventory</h4>
-            <p>
-              Current Value:{" "}
-              {formatLKR(summary.summary.inventory?.currentValue)}
-            </p>
+          <div className="summary-item">
+            <span className="summary-icon">💰</span>
+            <div className="summary-info">
+              <span className="summary-label">Monthly Salary Budget</span>
+              <span className="summary-value salary-budget">
+                {formatLKR(summary.summary.staff?.monthlySalaryBudget)}
+              </span>
+            </div>
+          </div>
+          <div className="summary-item">
+            <span className="summary-icon">📦</span>
+            <div className="summary-info">
+              <span className="summary-label">Inventory Value</span>
+              <span className="summary-value inventory-value">
+                {formatLKR(summary.summary.inventory?.currentValue)}
+              </span>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Add Record Form */}
-      <div className="record-form">
-        <h3>Add Finance Record</h3>
-        {/* Action Buttons */}
+      {/* Quick Actions Panel */}
+      <div className="quick-actions-panel">
+        <h3 className="panel-title">
+          <span className="title-icon">⚡</span>
+          Quick Actions
+        </h3>
         <div className="action-buttons">
           <button
-            className="action-btn"
+            className="action-btn staff-payment-btn"
             onClick={() => setShowStaffPayment(true)}
           >
-            💰 Staff Payment
+            <span className="btn-icon">💰</span>
+            <span className="btn-text">
+              <strong>Staff Payment</strong>
+              <small>Process salary payments</small>
+            </span>
           </button>
           <button
-            className="action-btn"
+            className="action-btn bonus-btn"
             onClick={() => setShowBonusCalculator(true)}
           >
-            🎁 Give Bonus
+            <span className="btn-icon">🎁</span>
+            <span className="btn-text">
+              <strong>Give Bonus</strong>
+              <small>Reward your team</small>
+            </span>
           </button>
-          <button className="action-btn" onClick={downloadPDFReport}>
-            📄 Download Report
-          </button>
+        </div>
+      </div>
+
+      {/* Add Record Form - Enhanced */}
+      <div className="record-form">
+        <div className="form-header-with-button">
+          <h3 className="form-title">
+            <span className="title-icon">➕</span>
+            Add Finance Record
+          </h3>
+          {executedPortionPlans.length > 0 && (
+            <button
+              type="button"
+              className="portion-plan-btn"
+              onClick={() => setShowPortionPlanModal(true)}
+            >
+              <span className="btn-icon">🍽️</span>
+              <span className="btn-text">Add from Portion Plan</span>
+            </button>
+          )}
         </div>
         <form onSubmit={addFinanceRecord}>
           <div className="form-row">
-            <div className="form-group">
+            <div className="form-group1">
               <label>Type:</label>
               <select
                 name="type"
@@ -1022,7 +1240,7 @@ const FinanceDashboard = () => {
                 <option value="expense">Expense</option>
               </select>
             </div>
-            <div className="form-group">
+            <div className="form-group1">
               <label>Category:</label>
               <select
                 name="category"
@@ -1038,55 +1256,57 @@ const FinanceDashboard = () => {
             </div>
           </div>
 
-         {["staff_payment", "bonus", "loan_repayment"].includes(recordForm.type) && (
-  <div className="staff-selection">
-    <label>Select Staff:</label>
+          {["staff_payment", "bonus", "loan_repayment"].includes(
+            recordForm.type
+          ) && (
+            <div className="staff-selection">
+              <label>Select Staff:</label>
 
-    {!loading && staffList.length > 0 ? (
-      <div className="staff-grid">
-        {staffList.map((member) => (
-          <div
-            key={member._id}
-            className={`staff-card ${
-              recordForm.staffId === member._id ? "selected" : ""
-            }`}
-            onClick={() =>
-              setRecordForm({ ...recordForm, staffId: member._id })
-            }
-          >
-            <div className="staff-image">
-              {member.profileImage ? (
-                <img
-                  src={`http://localhost:5000/uploads/staff-images/${member.profileImage}`}
-                  alt={`${member.firstName} ${member.lastName}`}
-                />
-              ) : (
-                <div className="default-avatar">
-                  {member.firstName.charAt(0)}
-                  {member.lastName.charAt(0)}
+              {!loading && staffList.length > 0 ? (
+                <div className="staff-grid">
+                  {staffList.map((member) => (
+                    <div
+                      key={member._id}
+                      className={`staff-card ${
+                        recordForm.staffId === member._id ? "selected" : ""
+                      }`}
+                      onClick={() =>
+                        setRecordForm({ ...recordForm, staffId: member._id })
+                      }
+                    >
+                      <div className="staff-image">
+                        {member.profileImage ? (
+                          <img
+                            src={`http://localhost:5000/uploads/staff-images/${member.profileImage}`}
+                            alt={`${member.firstName} ${member.lastName}`}
+                          />
+                        ) : (
+                          <div className="default-avatar">
+                            {member.firstName.charAt(0)}
+                            {member.lastName.charAt(0)}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="staff-info">
+                        <h4>
+                          {member.firstName} {member.lastName}
+                        </h4>
+                        <p className="position">{member.position}</p>
+                        <p className="department">{member.department}</p>
+                        <p className="salary">
+                          Rs. {member.salary.toLocaleString()}/
+                          {member.salaryType}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              ) : (
+                <p>No staff available</p>
               )}
             </div>
-
-            <div className="staff-info">
-              <h4>
-                {member.firstName} {member.lastName}
-              </h4>
-              <p className="position">{member.position}</p>
-              <p className="department">{member.department}</p>
-              <p className="salary">
-                Rs. {member.salary.toLocaleString()}/{member.salaryType}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    ) : (
-      <p>No staff available</p>
-    )}
-  </div>
-)}
-
+          )}
 
           <div className="form-row">
             <div className="form-group">
@@ -1149,13 +1369,16 @@ const FinanceDashboard = () => {
         </form>
       </div>
 
-      {/* Records Table */}
+      {/* Records Table - Enhanced */}
       <div className="records-section">
-        <div className="section-header">
-          <h3>Recent Finance Records</h3>
-          <button className="reset-btn" onClick={resetDashboard}>
-            🔄 Refresh
-          </button>
+        <div className="section-header-row">
+          <h3 className="section-title">
+            <span className="title-icon">📋</span>
+            Recent Finance Records
+          </h3>
+          <div className="header-meta">
+            <span className="record-count">{records.length} Records</span>
+          </div>
         </div>
 
         {records.length > 0 ? (
@@ -1219,6 +1442,269 @@ const FinanceDashboard = () => {
           </div>
         )}
       </div>
+
+      {/* Staff Finance Management Modal */}
+      {showStaffFinanceModal && (
+        <div className="staff-finance-modal-overlay" onClick={() => setShowStaffFinanceModal(false)}>
+          <div className="staff-finance-modal-container" onClick={(e) => e.stopPropagation()}>
+            <button 
+              className="staff-finance-close-btn"
+              onClick={() => setShowStaffFinanceModal(false)}
+            >
+              ✕
+            </button>
+            <StaffFinanceManagement isModal={true} />
+          </div>
+        </div>
+      )}
+
+      {/* Portion Plan Selection Modal */}
+      {showPortionPlanModal && (
+        <div className="modal-overlay" onClick={() => {
+          setShowPortionPlanModal(false);
+          setSelectedPlan(null);
+          setProfitMargin(40);
+          setCustomProfit("");
+        }}>
+          <div className="modal portion-plan-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="header-content">
+                <h3>🍽️ Add Portion Plan to Finance</h3>
+                <p className="modal-subtitle">
+                  Select a plan, set profit margin, and add to income records
+                </p>
+              </div>
+              <button 
+                className="close-modal-btn"
+                onClick={() => {
+                  setShowPortionPlanModal(false);
+                  setSelectedPlan(null);
+                  setProfitMargin(40);
+                  setCustomProfit("");
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {executedPortionPlans.length > 0 ? (
+              <>
+                <div className="portion-plans-list">
+                  {executedPortionPlans.map((plan) => (
+                    <div
+                      key={plan._id}
+                      className={`portion-plan-card ${
+                        selectedPlan?._id === plan._id ? "selected" : ""
+                      }`}
+                      onClick={() => handlePortionPlanSelect(plan)}
+                    >
+                      <div className="plan-header">
+                        <div className="plan-title-section">
+                          <h4 className="plan-name">{plan.name}</h4>
+                          <span className="plan-id-badge">{plan.planId}</span>
+                        </div>
+                        {selectedPlan?._id === plan._id && (
+                          <div className="selected-badge">✓ Selected</div>
+                        )}
+                      </div>
+                      
+                      <div className="plan-body">
+                        <div className="plan-info-grid">
+                          <div className="info-item">
+                            <span className="info-icon">👥</span>
+                            <div className="info-content">
+                              <span className="info-label">People</span>
+                              <span className="info-value">{plan.peopleCount}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="info-item">
+                            <span className="info-icon">💰</span>
+                            <div className="info-content">
+                              <span className="info-label">Total Cost</span>
+                              <span className="info-value cost-highlight">
+                                {formatLKR(plan.totalCost)}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="info-item">
+                            <span className="info-icon">📅</span>
+                            <div className="info-content">
+                              <span className="info-label">Created</span>
+                              <span className="info-value">
+                                {new Date(plan.createdAt).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="plan-menu-details">
+                          <div className="menu-item">
+                            <span className="menu-icon">🍛</span>
+                            <span className="menu-label">Main:</span>
+                            <span className="menu-value">{plan.mainMeal.name}</span>
+                          </div>
+                          <div className="menu-item">
+                            <span className="menu-icon">🥘</span>
+                            <span className="menu-label">Curries:</span>
+                            <span className="menu-value">
+                              {plan.curries.map(c => c.name).join(", ")}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="plan-footer">
+                        <span className="select-hint">
+                          {selectedPlan?._id === plan._id 
+                            ? "Set profit margin below →" 
+                            : "Click to select"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {selectedPlan && (
+                  <div className="profit-calculator">
+                    <div className="calculator-header">
+                      <h4 className="calculator-title">💵 Set Your Profit Margin</h4>
+                      <p className="calculator-subtitle">Choose a preset or enter custom percentage</p>
+                    </div>
+                    
+                    <div className="margin-selector">
+                      <label className="selector-label">Quick Margins:</label>
+                      <div className="profit-margin-buttons">
+                        <button
+                          type="button"
+                          className={`margin-btn ${profitMargin === 40 && customProfit === "" ? "active" : ""}`}
+                          onClick={() => {
+                            setProfitMargin(40);
+                            setCustomProfit("");
+                          }}
+                        >
+                          <span className="margin-value">40%</span>
+                          <span className="margin-label">Standard</span>
+                        </button>
+                        <button
+                          type="button"
+                          className={`margin-btn ${profitMargin === 60 && customProfit === "" ? "active" : ""}`}
+                          onClick={() => {
+                            setProfitMargin(60);
+                            setCustomProfit("");
+                          }}
+                        >
+                          <span className="margin-value">60%</span>
+                          <span className="margin-label">Premium</span>
+                        </button>
+                        <button
+                          type="button"
+                          className={`margin-btn ${profitMargin === 80 && customProfit === "" ? "active" : ""}`}
+                          onClick={() => {
+                            setProfitMargin(80);
+                            setCustomProfit("");
+                          }}
+                        >
+                          <span className="margin-value">80%</span>
+                          <span className="margin-label">Luxury</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="custom-profit-section">
+                      <label className="selector-label">Or Enter Custom:</label>
+                      <div className="custom-input-wrapper">
+                        <input
+                          type="number"
+                          value={customProfit}
+                          onChange={(e) => setCustomProfit(e.target.value)}
+                          placeholder="e.g., 45"
+                          min="0"
+                          max="1000"
+                          step="0.1"
+                          className="custom-profit-input"
+                        />
+                        <span className="input-suffix">%</span>
+                      </div>
+                    </div>
+
+                    <div className="calculation-summary">
+                      <div className="summary-header">
+                        <h5>📊 Calculation Breakdown</h5>
+                      </div>
+                      <div className="summary-row cost-row">
+                        <span className="summary-label">
+                          <span className="label-icon">📦</span>
+                          Cost Price
+                        </span>
+                        <span className="summary-value">{formatLKR(selectedPlan.totalCost)}</span>
+                      </div>
+                      <div className="summary-row profit-row">
+                        <span className="summary-label">
+                          <span className="label-icon">📈</span>
+                          Profit ({customProfit !== "" ? customProfit : profitMargin}%)
+                        </span>
+                        <span className="summary-value profit-value">
+                          +{formatLKR(calculateProfit())}
+                        </span>
+                      </div>
+                      <div className="summary-divider"></div>
+                      <div className="summary-row total-row">
+                        <span className="summary-label">
+                          <span className="label-icon">💰</span>
+                          Final Selling Price
+                        </span>
+                        <span className="summary-value selling-price">
+                          {formatLKR(calculateSellingPrice())}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="no-plans-message">
+                <div className="no-plans-icon">🍽️</div>
+                <h4>No Available Portion Plans</h4>
+                <p>All executed portion plans have been added to finance records.</p>
+                <p className="hint-text">Execute new portion plans to add them here.</p>
+              </div>
+            )}
+
+            <div className="modal-buttons">
+              {executedPortionPlans.length > 0 && (
+                <button
+                  type="button"
+                  className="submit-btn"
+                  onClick={addPortionPlanToRecord}
+                  disabled={!selectedPlan}
+                >
+                  <span className="btn-icon">✓</span>
+                  <span className="btn-text">Add to Finance Record</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPortionPlanModal(false);
+                  setSelectedPlan(null);
+                  setProfitMargin(40);
+                  setCustomProfit("");
+                }}
+                className="cancel-btn"
+              >
+                <span className="btn-icon">✕</span>
+                <span className="btn-text">Close</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

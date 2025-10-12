@@ -62,10 +62,23 @@ const financeRecordSchema = new mongoose.Schema({
   invoiceNumber: String,
   referenceNumber: String,
   notes: String,
+  // Payment period fields (for staff payments)
+  paymentMonth: {
+    type: Number,
+    min: 1,
+    max: 12
+  },
+  paymentYear: {
+    type: Number,
+    min: 2020,
+    max: 2100
+  },
   // Payroll specific fields
   payrollDetails: {
     basicSalary: Number,
     overtime: Number,
+    overtimeHours: Number,
+    overtimeRate: Number,
     allowances: Number,
     deductions: Number,
     epfEmployee: Number,

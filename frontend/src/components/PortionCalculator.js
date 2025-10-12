@@ -5,7 +5,6 @@ import LoadingScreen from "./LoadingScreen";
 import NotificationCenter from "./NotificationCenter";
 import "../styles/PortionCalculator.css";
 
-
 const PortionCalculator = () => {
   const { currentUser } = useAuth(); // Get user from AuthContext
   const [recipes, setRecipes] = useState([]);
@@ -21,6 +20,9 @@ const PortionCalculator = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchError, setSearchError] = useState("");
   const [notificationCount, setNotificationCount] = useState(0);
+  const [showRecentPortions, setShowRecentPortions] = useState(false);
+  const [recentPortions, setRecentPortions] = useState([]);
+  const [loadingRecent, setLoadingRecent] = useState(false);
 
   // Plate portions state - only 5 curry spots + 1 main
   const [portions, setPortions] = useState({
@@ -38,9 +40,6 @@ const PortionCalculator = () => {
   const mealRecipes = recipes.filter((recipe) => recipe.category !== "curry");
 
   const curryRecipes = recipes.filter((recipe) => recipe.category === "curry");
-
-
-  
 
   // Group curries by subcategory
   const groupedCurries = curryRecipes.reduce((groups, curry) => {
@@ -64,15 +63,21 @@ const PortionCalculator = () => {
         .includes(searchTerm.toLowerCase())
   );
   // Add this helper function
-const formatIngredientQuantity = (quantity, unit) => {
-  if (unit === "kg" && quantity < 1) {
-    return { displayQuantity: (quantity * 1000).toFixed(0), displayUnit: "g" };
-  } else if (unit === "l" && quantity < 1) {
-    return { displayQuantity: (quantity * 1000).toFixed(0), displayUnit: "ml" };
-  } else {
-    return { displayQuantity: quantity.toFixed(3), displayUnit: unit };
-  }
-};
+  const formatIngredientQuantity = (quantity, unit) => {
+    if (unit === "kg" && quantity < 1) {
+      return {
+        displayQuantity: (quantity * 1000).toFixed(0),
+        displayUnit: "g",
+      };
+    } else if (unit === "l" && quantity < 1) {
+      return {
+        displayQuantity: (quantity * 1000).toFixed(0),
+        displayUnit: "ml",
+      };
+    } else {
+      return { displayQuantity: quantity.toFixed(3), displayUnit: unit };
+    }
+  };
 
   // Filter curries based on search term
   const filteredCurries = Object.keys(groupedCurries).reduce(
@@ -362,6 +367,188 @@ const formatIngredientQuantity = (quantity, unit) => {
     setNotificationCount(count);
   }, []);
 
+  // Fetch recent portions
+  const fetchRecentPortions = async () => {
+    try {
+      setLoadingRecent(true);
+      setError("");
+      const token = localStorage.getItem("token");
+
+      console.log("Fetching recent portions...");
+      const response = await axios.get("http://localhost:5000/api/portions", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      console.log("API Response:", response.data);
+
+      const allPlans = response.data.plans || [];
+      console.log(`Found ${allPlans.length} total plans`);
+
+      const sortedPortions = allPlans
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 10);
+
+      console.log(`Showing ${sortedPortions.length} recent plans`);
+      setRecentPortions(sortedPortions);
+      setShowRecentPortions(true);
+    } catch (error) {
+      console.error("Error fetching recent portions:", error);
+      setError(
+        `Failed to fetch recent portions: ${
+          error.response?.data?.message || error.message
+        }`
+      );
+      setShowRecentPortions(false);
+    } finally {
+      setLoadingRecent(false);
+    }
+  };
+
+  // Reuse a portion plan - populate calculator for modification
+  const reusePortionPlan = async (plan) => {
+    try {
+      setLoadingRecent(true);
+      const token = localStorage.getItem("token");
+
+      console.log("Reusing plan - full plan data:", plan);
+
+      // Extract recipe ID (handle both populated and non-populated cases)
+      const mainMealId = plan.mainMeal.recipeId?._id || plan.mainMeal.recipeId;
+      console.log("Main meal recipe ID:", mainMealId);
+
+      if (!mainMealId) {
+        throw new Error("Main meal recipe ID not found");
+      }
+
+      // Fetch full recipe details for main meal
+      const mainMealRecipe = await axios.get(
+        `http://localhost:5000/api/recipes/${mainMealId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      console.log("Main meal recipe response:", mainMealRecipe.data);
+
+      // Backend returns { message, recipe } - extract the recipe
+      const mainMealData = mainMealRecipe.data.recipe || mainMealRecipe.data;
+      console.log("Main meal recipe data:", mainMealData);
+
+      // Fetch full recipe details for curries
+      const curryPromises = plan.curries.map((curry) => {
+        const curryId = curry.recipeId?._id || curry.recipeId;
+        console.log("Fetching curry recipe ID:", curryId);
+        return axios.get(`http://localhost:5000/api/recipes/${curryId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      });
+      const curryResponses = await Promise.all(curryPromises);
+
+      console.log("All curries fetched:", curryResponses.length);
+
+      // Set the selected items - extract recipe from response
+      const fetchedCurries = curryResponses.map(
+        (res) => res.data.recipe || res.data
+      );
+      setSelectedMainMeal(mainMealData);
+      setSelectedCurries(fetchedCurries);
+
+      // Update portions on plate
+      const newPortions = {
+        center: mainMealData,
+        curry1: fetchedCurries[0] || null,
+        curry2: fetchedCurries[1] || null,
+        curry3: fetchedCurries[2] || null,
+        curry4: fetchedCurries[3] || null,
+        curry5: fetchedCurries[4] || null,
+      };
+      setPortions(newPortions);
+
+      console.log("Portions set on plate:", newPortions);
+
+      // Set plan name and people count (user can modify these)
+      setPlanName(plan.name);
+      setPeopleCount(plan.peopleCount);
+
+      // Close the modal and show calculator form
+      setShowRecentPortions(false);
+      setShowResults(false);
+      setError("");
+
+      console.log(
+        "Plan loaded into calculator. You can now modify and generate."
+      );
+    } catch (error) {
+      console.error("Error reusing portion plan:", error);
+      console.error("Error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+
+      let errorMessage = "Failed to load portion plan: ";
+      if (error.response) {
+        // Server responded with error
+        errorMessage +=
+          error.response.data?.message ||
+          `Server error (${error.response.status})`;
+      } else if (error.request) {
+        // Request made but no response
+        errorMessage +=
+          "No response from server. Please check if backend is running.";
+      } else {
+        // Something else went wrong
+        errorMessage += error.message;
+      }
+
+      setError(errorMessage);
+    } finally {
+      setLoadingRecent(false);
+    }
+  };
+
+  // View a portion plan - directly shows the existing plan details
+  const viewPortionPlan = async (plan) => {
+    try {
+      setLoadingRecent(true);
+
+      console.log("Opening plan for viewing:", plan);
+
+      // Directly set the plan and show results page
+      setGeneratedPlan(plan);
+      setShowResults(true);
+      setShowRecentPortions(false);
+      setError("");
+    } catch (error) {
+      console.error("Error opening portion plan:", error);
+      setError(
+        "Failed to open portion plan: " +
+          (error.response?.data?.message || error.message)
+      );
+    } finally {
+      setLoadingRecent(false);
+    }
+  };
+
+  // Delete a portion plan
+  const deletePortionPlan = async (planId) => {
+    if (!window.confirm("Are you sure you want to delete this portion plan?")) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`http://localhost:5000/api/portions/${planId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      // Remove from the list
+      setRecentPortions(recentPortions.filter((plan) => plan._id !== planId));
+      alert("Portion plan deleted successfully");
+    } catch (error) {
+      console.error("Error deleting portion plan:", error);
+      setError("Failed to delete portion plan");
+    }
+  };
+
   const renderPortionArea = (portionKey, className, size = "small") => (
     <div
       className={`portion-area ${className} ${size}`}
@@ -395,54 +582,53 @@ const formatIngredientQuantity = (quantity, unit) => {
     </div>
   );
 
-
   // Add these states
-const [planNameError, setPlanNameError] = useState("");
-const [peopleCountError, setPeopleCountError] = useState("");
+  const [planNameError, setPlanNameError] = useState("");
+  const [peopleCountError, setPeopleCountError] = useState("");
 
-// Validation handlers
-const handlePlanNameChange = (e) => {
-  const value = e.target.value;
-  setPlanName(value);
+  // Validation handlers
+  const handlePlanNameChange = (e) => {
+    const value = e.target.value;
+    setPlanName(value);
 
-  // Allow letters, numbers, spaces, parentheses ( and )
-  const regex = /^[a-zA-Z\s()]*$/;
+    // Allow letters, numbers, spaces, parentheses ( and )
+    const regex = /^[a-zA-Z\s()]*$/;
 
-  if (!regex.test(value)) {
-    setPlanNameError("Plan name can only contain letters, spaces, and ()");
-  } else if (value.trim() === "") {
-    setPlanNameError("Plan name cannot be empty");
-  } else {
-    setPlanNameError("");
-  }
-};
+    if (!regex.test(value)) {
+      setPlanNameError("Plan name can only contain letters, spaces, and ()");
+    } else if (value.trim() === "") {
+      setPlanNameError("Plan name cannot be empty");
+    } else {
+      setPlanNameError("");
+    }
+  };
 
-const handleSearchChange = (e) => {
-  const value = e.target.value;
-  setSearchTerm(value);
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
 
-  // Allow letters, numbers, spaces, parentheses ( and )
-  const regex = /^[a-zA-Z\s()]*$/;
+    // Allow letters, numbers, spaces, parentheses ( and )
+    const regex = /^[a-zA-Z\s()]*$/;
 
-  if (!regex.test(value)) {
-    setSearchError("Search can only contain letters, spaces, and ( )");
-  } else {
-    setSearchError("");
-  }
-};
+    if (!regex.test(value)) {
+      setSearchError("Search can only contain letters, spaces, and ( )");
+    } else {
+      setSearchError("");
+    }
+  };
 
-const handlePeopleCountChange = (e) => {
-  const value = parseInt(e.target.value, 10);
-  setPeopleCount(value);
+  const handlePeopleCountChange = (e) => {
+    const value = parseInt(e.target.value, 10);
+    setPeopleCount(value);
 
-  if (isNaN(value) || value < 1) {
-    setPeopleCountError("Number of people must be at least 1");
-  } else if (value > 20000) {
-    setPeopleCountError("Number of people cannot exceed 20,000");
-  } else {
-    setPeopleCountError("");
-  }
-};
+    if (isNaN(value) || value < 1) {
+      setPeopleCountError("Number of people must be at least 1");
+    } else if (value > 20000) {
+      setPeopleCountError("Number of people cannot exceed 20,000");
+    } else {
+      setPeopleCountError("");
+    }
+  };
 
   if (loading) return <LoadingScreen />;
 
@@ -462,6 +648,13 @@ const handlePeopleCountChange = (e) => {
           <h2>Portion Calculator 🍽️</h2>
         </div>
         <div className="header-actions">
+          <button
+            className="recent-portions-btn"
+            onClick={fetchRecentPortions}
+            title="View recent portion plans"
+          >
+            📋 Recent Portions
+          </button>
           <NotificationCenter
             module="portion_calculator"
             onNotificationUpdate={handleNotificationUpdate}
@@ -470,6 +663,122 @@ const handlePeopleCountChange = (e) => {
       </div>
 
       {error && <div className="error-message">{error}</div>}
+
+      {/* Recent Portions Modal */}
+      {showRecentPortions && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowRecentPortions(false)}
+        >
+          <div
+            className="recent-portions-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3>Recent Portion Plans</h3>
+              <button
+                className="close-modal-btn"
+                onClick={() => setShowRecentPortions(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-content">
+              {loadingRecent ? (
+                <div className="loading-spinner">Loading...</div>
+              ) : recentPortions.length === 0 ? (
+                <div className="no-portions-message">
+                  <p>No recent portion plans found</p>
+                  <p
+                    style={{
+                      fontSize: "14px",
+                      color: "#999",
+                      marginTop: "10px",
+                    }}
+                  >
+                    Create a portion plan to see it listed here
+                  </p>
+                </div>
+              ) : (
+                <div className="portions-list">
+                  {recentPortions.map((plan) => {
+                    const mainMealName =
+                      plan.mainMeal?.name || "Unknown Main Meal";
+                    const curriesNames =
+                      (plan.curries || [])
+                        .map((c) => c.name || "Unknown")
+                        .join(", ") || "No curries";
+
+                    return (
+                      <div key={plan._id} className="portion-card">
+                        <div className="portion-card-header">
+                          <h4>{plan.name || "Unnamed Plan"}</h4>
+                          <span className="portion-date">
+                            {plan.createdAt
+                              ? new Date(plan.createdAt).toLocaleDateString()
+                              : "Unknown date"}
+                          </span>
+                        </div>
+
+                        <div className="portion-card-details">
+                          <div className="portion-info">
+                            <span className="info-label">Plan ID:</span>
+                            <span>{plan.planId || "N/A"}</span>
+                          </div>
+                          <div className="portion-info">
+                            <span className="info-label">People:</span>
+                            <span>{plan.peopleCount || 0}</span>
+                          </div>
+                          <div className="portion-info">
+                            <span className="info-label">Total Cost:</span>
+                            <span>
+                              Rs {plan.totalCost?.toFixed(2) || "0.00"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="portion-card-items">
+                          <div className="portion-item">
+                            <strong>Main:</strong> {mainMealName}
+                          </div>
+                          <div className="portion-item">
+                            <strong>Curries:</strong> {curriesNames}
+                          </div>
+                        </div>
+
+                        <div className="portion-card-actions">
+                          <button
+                            className="action-btn edit-btn"
+                            onClick={() => viewPortionPlan(plan)}
+                            title="View this plan details and execute/download"
+                          >
+                            👁️ View
+                          </button>
+                          <button
+                            className="action-btn reuse-btn"
+                            onClick={() => reusePortionPlan(plan)}
+                            title="Load recipes into calculator to modify people count and name"
+                          >
+                            🔄 Reuse
+                          </button>
+                          <button
+                            className="action-btn delete-btn"
+                            onClick={() => deletePortionPlan(plan._id)}
+                            title="Delete this plan permanently"
+                          >
+                            🗑️ Delete
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {!showResults ? (
         <div className="calculator-content">
@@ -489,16 +798,15 @@ const handlePeopleCountChange = (e) => {
           <div className="recipe-selection">
             {/* Search Bar */}
             <div className="search-container">
-  <input
-    type="text"
-    className={`search-bar ${searchError ? "invalid-input" : ""}`}
-    placeholder="🔍 Search curries and meals..."
-    value={searchTerm}
-    onChange={handleSearchChange}
-  />
-  {searchError && <p className="error-text">{searchError}</p>}
-</div>
-
+              <input
+                type="text"
+                className={`search-bar ${searchError ? "invalid-input" : ""}`}
+                placeholder="🔍 Search curries and meals..."
+                value={searchTerm}
+                onChange={handleSearchChange}
+              />
+              {searchError && <p className="error-text">{searchError}</p>}
+            </div>
 
             {/* Main Meals Section */}
             <div className="recipe-section">
@@ -608,33 +916,34 @@ const handlePeopleCountChange = (e) => {
 
             {/* Plan Details */}
             {/* Plan Details */}
-<div className="plan-details">
-  <div className="form-group">
-    <label>Plan Name:</label>
-    <input
-      type="text"
-      value={planName}
-      onChange={handlePlanNameChange}
-      placeholder="Enter plan name"
-      className={planNameError ? "invalid-input" : ""}
-    />
-    {planNameError && <p className="error-text">{planNameError}</p>}
-  </div>
-  
-  <div className="form-group">
-    <label>Number of People:</label>
-    <input
-      type="number"
-      value={peopleCount}
-      onChange={handlePeopleCountChange}
-      min="1"
-      max="20000"
-      className={peopleCountError ? "invalid-input" : ""}
-    />
-    {peopleCountError && <p className="error-text">{peopleCountError}</p>}
-  </div>
-</div>
+            <div className="plan-details">
+              <div className="form-group">
+                <label>Plan Name:</label>
+                <input
+                  type="text"
+                  value={planName}
+                  onChange={handlePlanNameChange}
+                  placeholder="Enter plan name"
+                  className={planNameError ? "invalid-input" : ""}
+                />
+                {planNameError && <p className="error-text">{planNameError}</p>}
+              </div>
 
+              <div className="form-group">
+                <label>Number of People:</label>
+                <input
+                  type="number"
+                  value={peopleCount}
+                  onChange={handlePeopleCountChange}
+                  min="1"
+                  max="20000"
+                  className={peopleCountError ? "invalid-input" : ""}
+                />
+                {peopleCountError && (
+                  <p className="error-text">{peopleCountError}</p>
+                )}
+              </div>
+            </div>
 
             {/* Generate Button */}
             <div className="action-buttons">
@@ -688,22 +997,22 @@ const handlePeopleCountChange = (e) => {
                 <span>Unit</span>
                 <span>Cost</span>
               </div>
-             {generatedPlan.totalIngredients.map((ingredient, index) => {
-  const { displayQuantity, displayUnit } = formatIngredientQuantity(
-    ingredient.totalQuantity,
-    ingredient.unit
-  );
+              {generatedPlan.totalIngredients.map((ingredient, index) => {
+                const { displayQuantity, displayUnit } =
+                  formatIngredientQuantity(
+                    ingredient.totalQuantity,
+                    ingredient.unit
+                  );
 
-  return (
-    <div key={index} className="table-row">
-      <span>{ingredient.itemName}</span>
-      <span>{displayQuantity}</span>
-      <span>{displayUnit}</span>
-      <span>Rs {ingredient.totalCost.toFixed(2)}</span>
-    </div>
-  );
-})}
-
+                return (
+                  <div key={index} className="table-row">
+                    <span>{ingredient.itemName}</span>
+                    <span>{displayQuantity}</span>
+                    <span>{displayUnit}</span>
+                    <span>Rs {ingredient.totalCost.toFixed(2)}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

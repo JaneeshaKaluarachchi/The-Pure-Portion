@@ -393,6 +393,33 @@ const RecipeManagement = () => {
     }).format(amount);
   };
 
+  // Generate PDF for recipe - Call backend API
+  const generateRecipePDF = async (recipe) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(
+        `http://localhost:5000/api/recipes/${recipe._id}/pdf`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: 'blob'
+        }
+      );
+
+      // Create a download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${recipe.name.replace(/[^a-z0-9]/gi, '_')}_Recipe.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    }
+  };
+
   // Get available units for an ingredient
   const getAvailableUnits = (item) => {
     const baseUnit = item.unit;
@@ -490,6 +517,13 @@ const RecipeManagement = () => {
                         🥘 {recipe.ingredients.length} ingredients
                       </div>
                       <div className="recipe-actions">
+                        <button
+                          className="btn-pdf"
+                          onClick={() => generateRecipePDF(recipe)}
+                          title="Download PDF"
+                        >
+                          📄 PDF
+                        </button>
                         <button
                           className="btn-edit"
                           onClick={() => handleEditRecipe(recipe)}

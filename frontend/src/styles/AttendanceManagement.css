@@ -329,13 +329,13 @@ body {
 }
 
 .clock-buttons {
-  display: flex;
+  display: flex !;
   gap: 1rem;
   margin-top: 2rem;
 }
 
 .clock-btn {
-  flex: 1;
+  flex: 1 !important;
   padding: 1rem;
   border: none;
   border-radius: 50px;

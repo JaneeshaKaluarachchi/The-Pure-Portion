@@ -251,6 +251,27 @@ const LeftoverManagement = () => {
   
   const [showChatbot, setShowChatbot] = useState(false);
   const [showCustomConfirm, setShowCustomConfirm] = useState({ show: false });
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedDonation, setSelectedDonation] = useState(null);
+
+  // Claim request states
+  const [showClaimModal, setShowClaimModal] = useState(false);
+  const [selectedLeftoverForClaim, setSelectedLeftoverForClaim] = useState(null);
+  const [claimForm, setClaimForm] = useState({
+    name: '',
+    phone: '',
+    location: '',
+    reason: ''
+  });
+  const [claimErrors, setClaimErrors] = useState({});
+  const [pendingClaims, setPendingClaims] = useState({});
+  
+  // Notification states
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [claimNotifications, setClaimNotifications] = useState([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [selectedNotification, setSelectedNotification] = useState(null);
+  const [showNotificationDetails, setShowNotificationDetails] = useState(false);
 
   // Validation errors state
   const [donationErrors, setDonationErrors] = useState({});
@@ -667,11 +688,54 @@ const LeftoverManagement = () => {
     }
   }, []);
 
+  // Fetch claim notifications
+  const fetchClaimNotifications = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5000/api/food-claim-notifications', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setClaimNotifications(response.data.notifications || []);
+      setUnreadNotificationCount(response.data.unreadCount || 0);
+    } catch (error) {
+      console.error('Error fetching claim notifications:', error);
+    }
+  }, []);
+
+  // Check pending claims for leftovers
+  const checkPendingClaims = useCallback(async (leftoverIds) => {
+    try {
+      const token = localStorage.getItem('token');
+      const pendingClaimsMap = {};
+      
+      await Promise.all(leftoverIds.map(async (id) => {
+        try {
+          const response = await axios.get(
+            `http://localhost:5000/api/food-claim-notifications/check-pending/${id}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (response.data.hasPendingClaim) {
+            pendingClaimsMap[id] = true;
+          }
+        } catch (err) {
+          // Ignore errors for individual checks
+        }
+      }));
+      
+      setPendingClaims(pendingClaimsMap);
+    } catch (error) {
+      console.error('Error checking pending claims:', error);
+    }
+  }, []);
+
   useEffect(() => {
     const storedUserType = localStorage.getItem('userType') || localStorage.getItem('role') || 'household';
     setUserType(storedUserType);
 
-    if (activeTab === 'browse') fetchLeftovers();
+    if (activeTab === 'browse') {
+      fetchLeftovers();
+    }
     if (activeTab === 'requests') fetchDonationRequests();
     if (activeTab === 'my-donations') fetchMyLeftovers();
     if (activeTab === 'admin' && storedUserType === 'admin') {
@@ -680,19 +744,161 @@ const LeftoverManagement = () => {
     }
   }, [activeTab, fetchLeftovers, fetchDonationRequests, fetchMyLeftovers, fetchPendingLeftovers, fetchPendingRequests]);
 
-  const handleClaimLeftover = async (leftoverId) => {
+  // Fetch claim notifications periodically
+  useEffect(() => {
+    fetchClaimNotifications();
+    const interval = setInterval(fetchClaimNotifications, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, [fetchClaimNotifications]);
+
+  // Check pending claims when leftovers are loaded
+  useEffect(() => {
+    if (leftovers.length > 0) {
+      const leftoverIds = leftovers.map(l => l._id);
+      checkPendingClaims(leftoverIds);
+    }
+  }, [leftovers, checkPendingClaims]);
+
+  // Open claim request modal
+  const handleClaimLeftover = (leftover) => {
+    setSelectedLeftoverForClaim(leftover);
+    setShowClaimModal(true);
+    setClaimForm({
+      name: '',
+      phone: '',
+      location: '',
+      reason: ''
+    });
+    setClaimErrors({});
+  };
+
+  // Validate claim form
+  const validateClaimForm = () => {
+    const errors = {};
+    
+    // Name validation - only letters and spaces
+    if (!claimForm.name.trim()) {
+      errors.name = 'Name is required';
+    } else if (!/^[A-Za-z\s]+$/.test(claimForm.name)) {
+      errors.name = 'Name can only contain letters and spaces';
+    }
+    
+    // Phone validation - exactly 10 digits
+    if (!claimForm.phone.trim()) {
+      errors.phone = 'Phone number is required';
+    } else if (!/^[0-9]{10}$/.test(claimForm.phone)) {
+      errors.phone = 'Phone number must be exactly 10 digits';
+    }
+    
+    // Location validation
+    if (!claimForm.location.trim()) {
+      errors.location = 'Location is required';
+    }
+    
+    // Reason validation
+    if (!claimForm.reason.trim()) {
+      errors.reason = 'Reason is required';
+    }
+    
+    setClaimErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Submit claim request
+  const handleClaimSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateClaimForm()) {
+      showPopup('Please fix the validation errors', 'error');
+      return;
+    }
+    
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`http://localhost:5000/api/leftovers/${leftoverId}/claim`, {}, {
+      await axios.post('http://localhost:5000/api/food-claim-notifications/claim-request', {
+        leftoverId: selectedLeftoverForClaim._id,
+        name: claimForm.name,
+        phone: claimForm.phone,
+        location: claimForm.location,
+        reason: claimForm.reason
+      }, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      showPopup('Leftover claimed successfully! Check your email for pickup details.', 'success');
+      showPopup('Claim request submitted successfully! You will be notified when the donor responds.', 'success');
+      setShowClaimModal(false);
+      setShowDetailsModal(false);
+      
+      // Mark this leftover as having a pending claim
+      setPendingClaims(prev => ({
+        ...prev,
+        [selectedLeftoverForClaim._id]: true
+      }));
+      
       fetchLeftovers();
     } catch (error) {
-      console.error('Error claiming leftover:', error);
-      showPopup('Failed to claim leftover: ' + (error.response?.data?.message || error.message), 'error');
+      console.error('Error submitting claim request:', error);
+      showPopup('Failed to submit claim request: ' + (error.response?.data?.message || error.message), 'error');
     }
+  };
+
+  // Mark notification as read
+  const markNotificationAsRead = async (notificationId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.patch(
+        `http://localhost:5000/api/food-claim-notifications/${notificationId}/read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      fetchClaimNotifications();
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  // Handle notification click
+  const handleNotificationClick = async (notification) => {
+    setSelectedNotification(notification);
+    setShowNotificationDetails(true);
+    
+    if (!notification.isRead) {
+      await markNotificationAsRead(notification._id);
+    }
+  };
+
+  // Respond to claim request (approve/reject)
+  const handleRespondToClaim = async (notificationId, action, rejectionReason = '') => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `http://localhost:5000/api/food-claim-notifications/${notificationId}/respond`,
+        { action, rejectionReason },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      showPopup(
+        action === 'approve' 
+          ? 'Claim request approved! The requester has been notified.' 
+          : 'Claim request rejected. The requester has been notified.',
+        'success'
+      );
+      
+      setShowNotificationDetails(false);
+      fetchClaimNotifications();
+      fetchMyLeftovers();
+      
+      // Redirect to My Donations page
+      setActiveTab('my-donations');
+    } catch (error) {
+      console.error('Error responding to claim:', error);
+      showPopup('Failed to respond: ' + (error.response?.data?.message || error.message), 'error');
+    }
+  };
+
+  const handleViewDetails = (leftover) => {
+    setSelectedDonation(leftover);
+    setShowDetailsModal(true);
   };
 
   const handleDonateSubmit = async (e) => {
@@ -933,6 +1139,16 @@ const LeftoverManagement = () => {
         <h2>♻️ Leftover Management System</h2>
         <div className="header-actions">
           <button 
+            className="notification-bell-btn"
+            onClick={() => setShowNotifications(!showNotifications)}
+            title="Claim Notifications"
+          >
+            🔔 Notifications
+            {unreadNotificationCount > 0 && (
+              <span className="notification-badge">{unreadNotificationCount}</span>
+            )}
+          </button>
+          <button 
             className="request-btn"
             onClick={() => setShowRequestModal(true)}
           >
@@ -1068,11 +1284,23 @@ const LeftoverManagement = () => {
                   </div>
                   <div className="leftover-actions">
                     <button 
-                      className="claim-btn"
-                      onClick={() => handleClaimLeftover(leftover._id)}
+                      className="details-btn"
+                      onClick={() => handleViewDetails(leftover)}
                     >
-                       Claim This Food
+                       Details
                     </button>
+                    {pendingClaims[leftover._id] ? (
+                      <div className="pending-claim-label">
+                        ⏳ Your request is pending
+                      </div>
+                    ) : (
+                      <button 
+                        className="claim-btn"
+                        onClick={() => handleClaimLeftover(leftover)}
+                      >
+                         Claim This Food
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1613,6 +1841,382 @@ const LeftoverManagement = () => {
                 <button type="submit" className="submit-btn">Submit Request</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Details Modal */}
+      {showDetailsModal && selectedDonation && (
+        <div className="modal-overlay" onClick={() => setShowDetailsModal(false)}>
+          <div className="modal details-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Donation Details</h3>
+              <button className="close-btn" onClick={() => setShowDetailsModal(false)}>×</button>
+            </div>
+            <div className="details-content">
+              {selectedDonation.imageUrl && (
+                <div className="details-image">
+                  <img src={`http://localhost:5000${selectedDonation.imageUrl}`} alt={selectedDonation.name} />
+                </div>
+              )}
+              
+              <div className="details-section">
+                <h4>Food Information</h4>
+                <div className="detail-row">
+                  <span className="detail-label">Name:</span>
+                  <span className="detail-value">{selectedDonation.name}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">Description:</span>
+                  <span className="detail-value">{selectedDonation.description}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">Quantity:</span>
+                  <span className="detail-value">{selectedDonation.quantity} {selectedDonation.unit}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">Category:</span>
+                  <span className="detail-value">{selectedDonation.category.replace('-', ' ')}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">Donor Type:</span>
+                  <span className="detail-value">{selectedDonation.donorType}</span>
+                </div>
+              </div>
+
+              <div className="details-section">
+                <h4>Pickup Information</h4>
+                <div className="detail-row">
+                  <span className="detail-label">Address:</span>
+                  <span className="detail-value">{selectedDonation.location?.address || selectedDonation.address || 'Not specified'}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">Expiry Date:</span>
+                  <span className="detail-value expiry-highlight">
+                    {formatDate(selectedDonation.expiryDate)} ({getDaysUntilExpiry(selectedDonation.expiryDate)} days remaining)
+                  </span>
+                </div>
+                {selectedDonation.pickupInstructions && (
+                  <div className="detail-row">
+                    <span className="detail-label">Pickup Instructions:</span>
+                    <span className="detail-value">{selectedDonation.pickupInstructions}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="details-section">
+                <h4>Donor Information</h4>
+                <div className="detail-row">
+                  <span className="detail-label">Donated by:</span>
+                  <span className="detail-value">{selectedDonation.donorName}</span>
+                </div>
+                {selectedDonation.contactInfo && (
+                  <>
+                    {selectedDonation.contactInfo.phone && (
+                      <div className="detail-row">
+                        <span className="detail-label">Phone:</span>
+                        <span className="detail-value">{selectedDonation.contactInfo.phone}</span>
+                      </div>
+                    )}
+                    {selectedDonation.contactInfo.email && (
+                      <div className="detail-row">
+                        <span className="detail-label">Email:</span>
+                        <span className="detail-value">{selectedDonation.contactInfo.email}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {(selectedDonation.dietaryTags?.length > 0 || selectedDonation.allergens?.length > 0) && (
+                <div className="details-section">
+                  <h4>Dietary Information</h4>
+                  {selectedDonation.dietaryTags?.length > 0 && (
+                    <div className="detail-row">
+                      <span className="detail-label">Dietary Tags:</span>
+                      <div className="detail-tags">
+                        {selectedDonation.dietaryTags.map(tag => (
+                          <span key={tag} className="tag dietary">{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {selectedDonation.allergens?.length > 0 && (
+                    <div className="detail-row">
+                      <span className="detail-label">Allergens:</span>
+                      <div className="detail-tags">
+                        {selectedDonation.allergens.map(allergen => (
+                          <span key={allergen} className="tag allergen">Contains {allergen}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedDonation.notes && (
+                <div className="details-section">
+                  <h4>Additional Notes</h4>
+                  <div className="detail-row">
+                    <span className="detail-value">{selectedDonation.notes}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="details-footer">
+              {pendingClaims[selectedDonation._id] ? (
+                <div className="pending-claim-label-large">
+                  ⏳ Your request is pending
+                </div>
+              ) : (
+                <button 
+                  className="claim-btn-large"
+                  onClick={() => handleClaimLeftover(selectedDonation)}
+                >
+                  🎁 Claim Food Donation
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Claim Request Modal */}
+      {showClaimModal && (
+        <div className="modal-overlay">
+          <div className="modal claim-modal">
+            <div className="modal-header">
+              <h3>Claim Food Donation</h3>
+              <button onClick={() => setShowClaimModal(false)}>×</button>
+            </div>
+            <form className="claim-form" onSubmit={handleClaimSubmit}>
+              <div className="form-group">
+                <label>Your Name *</label>
+                <input 
+                  type="text"
+                  value={claimForm.name}
+                  onChange={(e) => {
+                    setClaimForm({...claimForm, name: e.target.value});
+                    if (claimErrors.name) {
+                      const errors = {...claimErrors};
+                      delete errors.name;
+                      setClaimErrors(errors);
+                    }
+                  }}
+                  className={claimErrors.name ? 'error' : ''}
+                  placeholder="Enter your full name (letters only)"
+                />
+                {claimErrors.name && <span className="error-text">{claimErrors.name}</span>}
+              </div>
+              
+              <div className="form-group">
+                <label>Phone Number *</label>
+                <input 
+                  type="tel"
+                  value={claimForm.phone}
+                  onChange={(e) => {
+                    setClaimForm({...claimForm, phone: e.target.value});
+                    if (claimErrors.phone) {
+                      const errors = {...claimErrors};
+                      delete errors.phone;
+                      setClaimErrors(errors);
+                    }
+                  }}
+                  className={claimErrors.phone ? 'error' : ''}
+                  placeholder="Enter 10 digit phone number"
+                  maxLength="10"
+                />
+                {claimErrors.phone && <span className="error-text">{claimErrors.phone}</span>}
+              </div>
+              
+              <div className="form-group">
+                <label>Location *</label>
+                <input 
+                  type="text"
+                  value={claimForm.location}
+                  onChange={(e) => {
+                    setClaimForm({...claimForm, location: e.target.value});
+                    if (claimErrors.location) {
+                      const errors = {...claimErrors};
+                      delete errors.location;
+                      setClaimErrors(errors);
+                    }
+                  }}
+                  className={claimErrors.location ? 'error' : ''}
+                  placeholder="Enter your location"
+                />
+                {claimErrors.location && <span className="error-text">{claimErrors.location}</span>}
+              </div>
+              
+              <div className="form-group">
+                <label>Reason for Request *</label>
+                <textarea 
+                  value={claimForm.reason}
+                  onChange={(e) => {
+                    setClaimForm({...claimForm, reason: e.target.value});
+                    if (claimErrors.reason) {
+                      const errors = {...claimErrors};
+                      delete errors.reason;
+                      setClaimErrors(errors);
+                    }
+                  }}
+                  className={claimErrors.reason ? 'error' : ''}
+                  placeholder="Please explain why you need this food"
+                  rows="4"
+                />
+                {claimErrors.reason && <span className="error-text">{claimErrors.reason}</span>}
+              </div>
+              
+              <div className="form-actions">
+                <button type="button" className="cancel-btn" onClick={() => setShowClaimModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="submit-btn">
+                  Submit Request
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Notifications Panel */}
+      {showNotifications && (
+        <div className="notifications-panel">
+          <div className="notifications-header">
+            <h3>Claim Notifications</h3>
+            <button onClick={() => setShowNotifications(false)}>×</button>
+          </div>
+          <div className="notifications-list">
+            {claimNotifications.length === 0 ? (
+              <div className="no-notifications">No notifications yet</div>
+            ) : (
+              claimNotifications.map(notification => (
+                <div 
+                  key={notification._id} 
+                  className={`notification-item ${!notification.isRead ? 'unread' : ''}`}
+                  onClick={() => handleNotificationClick(notification)}
+                >
+                  <div className="notification-icon">
+                    {notification.type === 'claim_request' && '📨'}
+                    {notification.type === 'claim_approved' && '✅'}
+                    {notification.type === 'claim_rejected' && '❌'}
+                  </div>
+                  <div className="notification-content">
+                    <div className="notification-title">
+                      {notification.type === 'claim_request' && 'New Claim Request'}
+                      {notification.type === 'claim_approved' && 'Claim Approved'}
+                      {notification.type === 'claim_rejected' && 'Claim Rejected'}
+                    </div>
+                    <div className="notification-message">
+                      {notification.type === 'claim_request' && 
+                        `${notification.requesterName} wants to claim "${notification.leftoverName}"`}
+                      {notification.type === 'claim_approved' && 
+                        `Your request for "${notification.leftoverName}" has been approved!`}
+                      {notification.type === 'claim_rejected' && 
+                        `Your request for "${notification.leftoverName}" was rejected`}
+                    </div>
+                    <div className="notification-time">
+                      {formatDate(notification.createdAt)}
+                    </div>
+                  </div>
+                  {!notification.isRead && <div className="unread-dot"></div>}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Notification Details Modal */}
+      {showNotificationDetails && selectedNotification && (
+        <div className="modal-overlay">
+          <div className="modal notification-details-modal">
+            <div className="modal-header">
+              <h3>
+                {selectedNotification.type === 'claim_request' && 'Claim Request Details'}
+                {selectedNotification.type === 'claim_approved' && 'Approved Request'}
+                {selectedNotification.type === 'claim_rejected' && 'Rejected Request'}
+              </h3>
+              <button onClick={() => setShowNotificationDetails(false)}>×</button>
+            </div>
+            
+            <div className="notification-details-content">
+              <div className="detail-section">
+                <h4>Food Item</h4>
+                <p><strong>{selectedNotification.leftoverName}</strong></p>
+              </div>
+
+              {selectedNotification.type === 'claim_request' && (
+                <>
+                  <div className="detail-section">
+                    <h4>Requester Information</h4>
+                    <p><strong>Name:</strong> {selectedNotification.claimDetails.name}</p>
+                    <p><strong>Phone:</strong> {selectedNotification.claimDetails.phone}</p>
+                    <p><strong>Location:</strong> {selectedNotification.claimDetails.location}</p>
+                  </div>
+                  
+                  <div className="detail-section">
+                    <h4>Reason for Request</h4>
+                    <p>{selectedNotification.claimDetails.reason}</p>
+                  </div>
+
+                  {selectedNotification.status === 'pending' && (
+                    <div className="approval-actions">
+                      <button 
+                        className="approve-btn"
+                        onClick={() => handleRespondToClaim(selectedNotification._id, 'approve')}
+                      >
+                        ✅ Approve Request
+                      </button>
+                      <button 
+                        className="reject-btn"
+                        onClick={() => {
+                          const reason = prompt('Please enter rejection reason:');
+                          if (reason) {
+                            handleRespondToClaim(selectedNotification._id, 'reject', reason);
+                          }
+                        }}
+                      >
+                        ❌ Reject Request
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {selectedNotification.type === 'claim_approved' && (
+                <div className="detail-section success-message">
+                  <h4>✅ Your request has been successfully approved!</h4>
+                  <p>The donor will contact you soon for pickup arrangements.</p>
+                  <div className="contact-info">
+                    <p><strong>Donor:</strong> {selectedNotification.donorName}</p>
+                  </div>
+                </div>
+              )}
+
+              {selectedNotification.type === 'claim_rejected' && (
+                <div className="detail-section error-message">
+                  <h4>❌ Your request has been rejected</h4>
+                  {selectedNotification.rejectionReason && (
+                    <div className="rejection-reason">
+                      <p><strong>Reason:</strong></p>
+                      <p>{selectedNotification.rejectionReason}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button 
+                className="close-btn"
+                onClick={() => setShowNotificationDetails(false)}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,6 +1,10 @@
 const Recipe = require('../models/Recipe');
 const Inventory = require('../models/Inventory');
+const User = require('../models/User');
 const mongoose = require('mongoose');
+const PDFDocument = require('pdfkit');
+const fs = require('fs');
+const path = require('path');
 
 // Helper function for unit conversion
 const convertUnits = (quantity, fromUnit, toUnit) => {
@@ -414,6 +418,197 @@ const getRecipeStats = async (req, res) => {
   }
 };
 
+// Generate PDF for recipe
+const generateRecipePDF = async (req, res) => {
+  try {
+    console.log('Generating PDF for recipe:', req.params.id);
+    
+    const recipe = await Recipe.findById(req.params.id)
+      .populate('ingredients.inventoryItemId', 'name');
+
+    if (!recipe) {
+      console.log('Recipe not found');
+      return res.status(404).json({ message: 'Recipe not found' });
+    }
+
+    console.log('Recipe found:', recipe.name);
+    console.log('Ingredients count:', recipe.ingredients.length);
+
+    const now = new Date();
+
+    // Get user from auth
+    const userId = req.user?.userId;
+    let user = null;
+    if (userId && userId !== 'admin') {
+      try {
+        user = await User.findById(userId).lean();
+      } catch (err) {
+        console.error('Error fetching user for PDF:', err);
+      }
+    }
+
+    // Restaurant details fallbacks
+    const restaurantName = user?.restaurantName || user?.businessName || user?.name || 'Pure Portions';
+    const restaurantAddress = user?.restaurantAddress || user?.address || user?.location || '123 Main Street, Colombo, Sri Lanka';
+    const restaurantPhone = user?.restaurantPhone || user?.phone || user?.phoneNumber || user?.contactNumber || '+94 11 234 5678';
+
+    // PDF setup
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="recipe-${recipe.name.replace(/[^a-z0-9]/gi, '_')}.pdf"`);
+    doc.pipe(res);
+
+    // --- Header: Logo left, everything else right ---
+    const margin = 40;
+    const pageWidth = doc.page.width;
+    const headerY = 30;
+
+    // Logo (left)
+    const logoPath = path.join(__dirname, '..', 'assets', 'logo.png');
+    if (fs.existsSync(logoPath)) {
+      doc.image(logoPath, margin, headerY, { width: 120 });
+    }
+
+    // Right-aligned block start X
+    const rightBlockX = pageWidth - margin - 220;
+    let rightY = headerY;
+
+    // Title
+    doc.fontSize(22).font('Helvetica-Bold').text('Recipe Report', rightBlockX, rightY, { width: 220, align: 'right' });
+    rightY += 28;
+
+    // Generated date
+    doc.fontSize(8).font('Helvetica').text(`Generated on: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`, rightBlockX, rightY, { width: 220, align: 'right' });
+    rightY += 16;
+
+    // Restaurant Info
+    doc.fontSize(12).font('Helvetica-Bold').text(restaurantName, rightBlockX, rightY, { width: 220, align: 'right' });
+    rightY += 16;
+    doc.fontSize(10).font('Helvetica').text(restaurantAddress, rightBlockX, rightY, { width: 220, align: 'right' });
+    rightY += 16;
+    doc.text(`Phone: ${restaurantPhone}`, rightBlockX, rightY, { width: 220, align: 'right' });
+    rightY += 20;
+
+    // --- Summary below header, centered ---
+    const totalCost = recipe.totalCost || recipe.ingredients.reduce((sum, ing) => sum + (ing.totalCost || ing.cost || 0), 0);
+    const summaryText = `Recipe: ${recipe.name}   |   Category: ${recipe.subcategory} `;
+
+    doc.moveDown(2);
+    doc.fontSize(12).font('Helvetica-Bold').fillColor('#2c3e50');
+
+    const textWidth = doc.widthOfString(summaryText);
+    const xCenter = (pageWidth - textWidth) / 2;
+
+    doc.text(summaryText, xCenter, doc.y);
+    doc.moveDown(1);
+
+    // --- Recipe Image (centered) - BEFORE description ---
+    if (recipe.imageUrl) {
+      try {
+        // Handle both full URLs and relative paths
+        let imagePath;
+        if (recipe.imageUrl.startsWith('http')) {
+          // Full URL - skip for now
+          console.log('Skipping HTTP image URL');
+        } else {
+          // Relative path like /uploads/recipes/...
+          const filename = path.basename(recipe.imageUrl);
+          imagePath = path.join(__dirname, '..', 'uploads', 'recipes', filename);
+          
+          console.log('Looking for image at:', imagePath);
+          
+          if (fs.existsSync(imagePath)) {
+            const imgWidth = 200;
+            const imgHeight = 200;
+            const imgX = (pageWidth - imgWidth) / 2;
+            
+            doc.image(imagePath, imgX, doc.y, { width: imgWidth, height: imgHeight });
+            doc.moveDown(1);
+            console.log('Image added successfully');
+          } else {
+            console.log('Image file not found at:', imagePath);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading recipe image:', error);
+      }
+    }
+
+    // --- Description Section - AFTER image ---
+    if (recipe.description) {
+      doc.moveDown(12);
+      const startY = doc.y;
+      doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50').text('Description:', 60, startY);
+      doc.fontSize(11).font('Helvetica').fillColor('black').text(recipe.description, 60, startY + 20, { width: pageWidth - 120 });
+      doc.moveDown(1.5);
+    }
+
+    // --- Ingredients Table ---
+    doc.moveDown(1);
+
+    let y = doc.y;
+    const rowHeight = 22;
+    const pageBottom = doc.page.height - 100;
+
+    const drawHeader = () => {
+      doc.fontSize(10).font('Helvetica-Bold').fillColor('white');
+      doc.rect(40, y - 3, 515, rowHeight).fill('#34495e');
+      doc.fillColor('white')
+        .text('Item', 45, y + 5)
+        .text('Quantity', 220, y + 5)
+        .text('Unit', 515, y + 5)
+        
+      y += rowHeight;
+    };
+
+    const addPageIfNeeded = (rowHeightNeeded) => {
+      if (y + rowHeightNeeded > pageBottom) {
+        doc.addPage();
+        y = 50;
+        drawHeader();
+      }
+    };
+
+    const drawRow = (ingredient, alternate = false) => {
+      const rowActualHeight = rowHeight;
+      addPageIfNeeded(rowActualHeight);
+
+      if (alternate) doc.rect(40, y - 3, 515, rowActualHeight).fill('#f4f4f4');
+
+      const itemName = ingredient.inventoryItemId?.name || ingredient.itemName || 'Unknown';
+      const itemCost = ingredient.totalCost || ingredient.cost || 0;
+
+      doc.fillColor('black').font('Helvetica').fontSize(10)
+        .text(itemName, 45, y + 5, { width: 165 })
+        .text((ingredient.quantity || 0).toFixed(2), 220, y + 5)
+        .text(ingredient.unit || '', 515, y + 5)
+        
+
+      y += rowActualHeight;
+    };
+
+    drawHeader();
+    recipe.ingredients.forEach((ingredient, index) => {
+      drawRow(ingredient, index % 2 === 0);
+    });
+
+    console.log('PDF generation completed successfully');
+    doc.end();
+  } catch (error) {
+    console.error('Generate PDF error:', error);
+    console.error('Error stack:', error.stack);
+    
+    // If headers haven't been sent yet, send error response
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        message: 'Failed to generate PDF', 
+        error: error.message,
+        details: error.stack 
+      });
+    }
+  }
+};
+
 module.exports = {
   addRecipe,
   getAllRecipes,
@@ -422,5 +617,6 @@ module.exports = {
   deleteRecipe,
   checkIngredientAvailability,
   scaleRecipe,
-  getRecipeStats
+  getRecipeStats,
+  generateRecipePDF
 };

@@ -281,15 +281,23 @@ const getAllPortionPlans = async (req, res) => {
   try {
     const restaurantId = req.user?.userId ? new mongoose.Types.ObjectId(req.user.userId) : null;
     
+    console.log('Getting portion plans for user:', restaurantId);
+    
     let filter = {};
     if (restaurantId) {
-      filter.restaurantId = restaurantId;
+      // Show plans for this user OR plans without restaurantId (for backward compatibility)
+      filter.$or = [
+        { restaurantId: restaurantId },
+        { restaurantId: null }
+      ];
     }
 
     const plans = await PortionPlan.find(filter)
       .populate('mainMeal.recipeId', 'name category imageUrl')
       .populate('curries.recipeId', 'name category imageUrl')
       .sort({ createdAt: -1 });
+
+    console.log(`Found ${plans.length} portion plans`);
 
     res.json({
       message: 'Portion plans retrieved successfully',

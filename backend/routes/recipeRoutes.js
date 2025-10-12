@@ -12,7 +12,8 @@ const {
   deleteRecipe,
   checkIngredientAvailability,
   scaleRecipe,
-  getRecipeStats
+  getRecipeStats,
+  generateRecipePDF
 } = require('../controllers/recipeController');
 
 const router = express.Router();
@@ -80,6 +81,7 @@ router.delete('/:id', deleteRecipe);
 // Recipe utility routes
 router.get('/:id/availability', checkIngredientAvailability);
 router.post('/:id/scale', scaleRecipe);
+router.get('/:id/pdf', generateRecipePDF);
 
 // Get ingredients needed for a recipe (for shopping list)
 router.get('/:id/ingredients', auth, async (req, res) => {
