@@ -1,0 +1,120 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{CAA2BE39-123A-B4E8-71F3-3325248DBDC6}|UKRoadAccidentCubeProject.dwproj|C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\Dim Date.dim||{B4191D15-2D32-45F2-906F-E91BBAAA6059}|Design",
+      "RelativeMoniker": "D:0:0:{CAA2BE39-123A-B4E8-71F3-3325248DBDC6}|UKRoadAccidentCubeProject.dwproj|solutionrelative:Dim Date.dim||{B4191D15-2D32-45F2-906F-E91BBAAA6059}|Design"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CAA2BE39-123A-B4E8-71F3-3325248DBDC6}|UKRoadAccidentCubeProject.dwproj|C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\DSV_UKRoadAccidentDW.cube||{B4191D15-2D32-45F2-906F-E91BBAAA6059}|Design",
+      "RelativeMoniker": "D:0:0:{CAA2BE39-123A-B4E8-71F3-3325248DBDC6}|UKRoadAccidentCubeProject.dwproj|solutionrelative:DSV_UKRoadAccidentDW.cube||{B4191D15-2D32-45F2-906F-E91BBAAA6059}|Design"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CAA2BE39-123A-B4E8-71F3-3325248DBDC6}|UKRoadAccidentCubeProject.dwproj|C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\DSV_UKRoadAccidentDW.dsv||{B4191D15-2D32-45F2-906F-E91BBAAA6059}|Design",
+      "RelativeMoniker": "D:0:0:{CAA2BE39-123A-B4E8-71F3-3325248DBDC6}|UKRoadAccidentCubeProject.dwproj|solutionrelative:DSV_UKRoadAccidentDW.dsv||{B4191D15-2D32-45F2-906F-E91BBAAA6059}|Design"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CAA2BE39-123A-B4E8-71F3-3325248DBDC6}|UKRoadAccidentCubeProject.dwproj|C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\Dim Road Condition.dim||{B4191D15-2D32-45F2-906F-E91BBAAA6059}|Design",
+      "RelativeMoniker": "D:0:0:{CAA2BE39-123A-B4E8-71F3-3325248DBDC6}|UKRoadAccidentCubeProject.dwproj|solutionrelative:Dim Road Condition.dim||{B4191D15-2D32-45F2-906F-E91BBAAA6059}|Design"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CAA2BE39-123A-B4E8-71F3-3325248DBDC6}|UKRoadAccidentCubeProject.dwproj|C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\Dim Location.dim||{B4191D15-2D32-45F2-906F-E91BBAAA6059}|Design",
+      "RelativeMoniker": "D:0:0:{CAA2BE39-123A-B4E8-71F3-3325248DBDC6}|UKRoadAccidentCubeProject.dwproj|solutionrelative:Dim Location.dim||{B4191D15-2D32-45F2-906F-E91BBAAA6059}|Design"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CAA2BE39-123A-B4E8-71F3-3325248DBDC6}|UKRoadAccidentCubeProject.dwproj|C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\Dim Casualty.dim||{B4191D15-2D32-45F2-906F-E91BBAAA6059}|Design",
+      "RelativeMoniker": "D:0:0:{CAA2BE39-123A-B4E8-71F3-3325248DBDC6}|UKRoadAccidentCubeProject.dwproj|solutionrelative:Dim Casualty.dim||{B4191D15-2D32-45F2-906F-E91BBAAA6059}|Design"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 2,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "Dim Location.dim [Design]",
+              "DocumentMoniker": "C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\Dim Location.dim",
+              "RelativeDocumentMoniker": "Dim Location.dim",
+              "ToolTip": "C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\Dim Location.dim [Design]",
+              "RelativeToolTip": "Dim Location.dim [Design]",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-01T06:14:13.333Z",
+              "EditorCaption": " [Design]"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Dim Date.dim [Design]",
+              "DocumentMoniker": "C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\Dim Date.dim",
+              "RelativeDocumentMoniker": "Dim Date.dim",
+              "ToolTip": "C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\Dim Date.dim [Design]",
+              "RelativeToolTip": "Dim Date.dim [Design]",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-01T06:14:04.491Z",
+              "EditorCaption": " [Design]"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "Dim Road Condition.dim [Design]",
+              "DocumentMoniker": "C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\Dim Road Condition.dim",
+              "RelativeDocumentMoniker": "Dim Road Condition.dim",
+              "ToolTip": "C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\Dim Road Condition.dim [Design]",
+              "RelativeToolTip": "Dim Road Condition.dim [Design]",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-01T06:08:33.858Z",
+              "EditorCaption": " [Design]"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "DSV_UKRoadAccidentDW.cube [Design]",
+              "DocumentMoniker": "C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\DSV_UKRoadAccidentDW.cube",
+              "RelativeDocumentMoniker": "DSV_UKRoadAccidentDW.cube",
+              "ToolTip": "C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\DSV_UKRoadAccidentDW.cube [Design]",
+              "RelativeToolTip": "DSV_UKRoadAccidentDW.cube [Design]",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-03-31T16:19:40.186Z",
+              "EditorCaption": " [Design]"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "DSV_UKRoadAccidentDW.dsv [Design]",
+              "DocumentMoniker": "C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\DSV_UKRoadAccidentDW.dsv",
+              "RelativeDocumentMoniker": "DSV_UKRoadAccidentDW.dsv",
+              "ToolTip": "C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\DSV_UKRoadAccidentDW.dsv [Design]",
+              "RelativeToolTip": "DSV_UKRoadAccidentDW.dsv [Design]",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-01T02:40:36.79Z",
+              "EditorCaption": " [Design]"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "Dim Casualty.dim [Design]",
+              "DocumentMoniker": "C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\Dim Casualty.dim",
+              "RelativeDocumentMoniker": "Dim Casualty.dim",
+              "ToolTip": "C:\\UKAccidentDW\\UKRoadAccidentCubeProject\\Dim Casualty.dim [Design]",
+              "RelativeToolTip": "Dim Casualty.dim [Design]",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-01T06:11:17.738Z",
+              "EditorCaption": " [Design]"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

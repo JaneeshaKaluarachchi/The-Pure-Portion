@@ -1,0 +1,1085 @@
+/* Modern Enhanced Attendance Management Styles */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  --glass-bg: rgba(255, 255, 255, 0.15);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --shadow-light: 0 8px 32px rgba(31, 38, 135, 0.37);
+  --shadow-medium: 0 15px 35px rgba(31, 38, 135, 0.2);
+  --shadow-heavy: 0 20px 40px rgba(0, 0, 0, 0.1);
+  --text-primary: #2d3748;
+  --text-secondary: #4a5568;
+  --text-muted: #718096;
+  --border-radius: 16px;
+  --border-radius-sm: 8px;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+.attendance-management {
+  padding: 2rem;
+  max-width: 1600px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+/* Header Styles */
+.attendance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3rem;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius);
+  padding: 2rem;
+  box-shadow: var(--shadow-light);
+}
+
+.attendance-header h2 {
+  color: rgb(0, 0, 0);
+  margin: 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: white;
+  background-clip: text;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0rem;
+  flex-wrap: wrap;
+}
+
+.settings-btn {
+  padding: 0.75rem 1.5rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  color: rgb(255, 255, 255);
+  border: 1px solid var(--glass-border);
+  border-radius: 50px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #282828;
+}
+
+.settings-btn:hover {
+  background: rgba(125, 125, 125, 0.25);
+  transform: translateY(-2px);
+  color: #282828;
+  box-shadow: var(--shadow-medium);
+}
+
+.tab-buttons {
+  display: flex;
+  gap: 0.5rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  padding: 0.5rem;
+  border-radius: 50px;
+  border: 1px solid var(--glass-border);
+}
+
+.tab-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: #78a139 !important;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 100;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: var(--transition);
+  font-weight: 500;
+  font-size: 0.9rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.tab-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  transition: left 0.5s;
+}
+
+.tab-btn:hover::before {
+  left: 100%;
+}
+
+.tab-btn:hover {
+  color: rgb(0, 0, 0) !important;
+  transform: translateY(-1px);
+}
+
+.tab-btn.active {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Today's Attendance Styles */
+.attendance-controls {
+  margin-bottom: 2rem;
+}
+
+.attendance-controls button {
+  padding: 0.75rem 2rem;
+  background:#78a139;
+  color: white;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: var(--transition);
+  box-shadow: var(--shadow-light);
+  position: relative;
+  overflow: hidden;
+}
+
+.attendance-controls button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.attendance-controls button:hover:not(:disabled)::before {
+  left: 100%;
+}
+
+.attendance-controls button:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-heavy);
+}
+
+.attendance-controls button:disabled {
+  background: linear-gradient(135deg, #78a139 0%, #78a139 100%);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.attendance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 2rem;
+}
+
+.attendance-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius);
+  padding: 2rem;
+  box-shadow: var(--shadow-light);
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+  width: 370px;
+  height: 700px;
+}
+
+.attendance-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--primary-gradient);
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+.attendance-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: var(--shadow-heavy);
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.staff-info h4 {
+  margin: 0 0 0.5rem 0;
+  color: rgb(0, 0, 0);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.staff-info p {
+  margin: 0.25rem 0;
+  color: rgba(0, 0, 0, 0.8);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.attendance-status {
+  margin: 1.5rem 0;
+  display: flex;
+  justify-content: center;
+}
+
+.status-badge {
+  padding: 0.5rem 1rem;
+  color: white;
+  border-radius: 50px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: var(--shadow-light);
+  position: relative;
+  overflow: hidden;
+}
+
+.status-badge::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.8s;
+}
+
+.status-badge:hover::before {
+  left: 100%;
+}
+
+.status-badge.small {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.7rem;
+}
+
+.time-info {
+  margin: 1.5rem 0;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.time-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0.75rem 0;
+  font-size: 0.9rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.time-row:last-child {
+  border-bottom: none;
+}
+
+.time-row span:first-child {
+  font-weight: 500;
+  font-size: large;
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.time-row span:last-child {
+  font-weight: 500;
+  font-size: large;
+  color: rgb(0, 0, 0);
+}
+
+.time-row.overtime {
+  color: #ff6b6b;
+  font-weight: 600;
+  background: rgba(255, 107, 107, 0.1);
+  border-radius: var(--border-radius-sm);
+  padding: 0.75rem;
+  margin: 1rem 0;
+}
+
+.clock-buttons {
+  display: flex !;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.clock-btn {
+  flex: 1 !important;
+  padding: 1rem;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-light);
+}
+
+.clock-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(147, 38, 38, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.clock-btn:hover:not(:disabled)::before {
+  left: 100%;
+}
+
+.clock-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.clock-in {
+  background: #78a139;
+  color: white;
+}
+
+.clock-in:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-heavy);
+}
+
+.clock-out {
+  background: #f6963f;
+  color: white;
+}
+
+.clock-out:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-heavy);
+}
+
+/* Individual Attendance Styles */
+.individual-controls {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  align-items: end;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  padding: 2rem;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-light);
+}
+
+.staff-selector {
+  flex: 1;
+  min-width: 250px;
+  height: 20px;
+}
+
+.staff-selector select {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.9rem;
+  background: rgba(0, 0, 0, 0.1);
+  color: rgb(0, 0, 0);
+  backdrop-filter: blur(10px);
+  transition: var(--transition);
+}
+
+.staff-selector select:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+.staff-selector select option {
+  background: var(--text-primary);
+  color: rgb(255, 255, 255);
+}
+
+.date-filters {
+  display: flex;
+  gap: 1rem;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.date-filters select,
+.date-filters input {
+  padding: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.9rem;
+  background: rgba(92, 92, 92, 0.1);
+  color: rgb(0, 0, 0);
+  backdrop-filter: blur(10px);
+  transition: var(--transition);
+}
+
+.date-filters select:focus,
+.date-filters input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+.date-filters button {
+  padding: 1rem 2rem;
+  background: var(--primary-gradient);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: var(--transition);
+  box-shadow: var(--shadow-light);
+}
+
+.date-filters button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-heavy);
+}
+
+/* Attendance Summary */
+.attendance-summary {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius);
+  padding: 2rem;
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow-light);
+  position: relative;
+  overflow: hidden;
+}
+
+.attendance-summary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--warning-gradient);
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+.attendance-summary h3 {
+  margin: 0 0 2rem 0;
+  color: rgb(0, 0, 0);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.summary-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: var(--transition);
+}
+
+.summary-item:hover {
+  background: rgba(162, 162, 162, 0.15);
+  transform: translateX(5px);
+}
+
+.summary-item .label {
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.8);
+  font-size: 0.9rem;
+}
+
+.summary-item .value {
+  font-weight: 700;
+  color: rgb(0, 0, 0);
+  font-size: 2rem;
+}
+
+.summary-item .value.overtime {
+  color: #ff6b6b;
+  text-shadow: 0 0 10px rgba(255, 107, 107, 0.3);
+}
+
+/* Attendance History */
+.attendance-history {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius);
+  padding: 2rem;
+  box-shadow: var(--shadow-light);
+  position: relative;
+  overflow: hidden;
+}
+
+.attendance-history::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--secondary-gradient);
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+.attendance-history h4 {
+  margin: 0 0 2rem 0;
+  color: rgb(0, 0, 0);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.history-table {
+  overflow-x: auto;
+  border-radius: var(--border-radius-sm);
+  background: rgba(173, 173, 173, 0.05);
+}
+
+.history-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.history-table th,
+.history-table td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.history-table th {
+  background: rgba(0, 0, 0, 0.1);
+  font-weight: 600;
+  color: rgb(0, 0, 0);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.8rem;
+}
+
+.history-table td {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+.history-table td.overtime {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+.history-table tr:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* PDF Reports Styles */
+.pdf-reports {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius);
+  padding: 2rem;
+  box-shadow: var(--shadow-light);
+  position: relative;
+  overflow: hidden;
+}
+
+.pdf-reports::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--danger-gradient);
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+.pdf-reports h3 {
+  margin: 0 0 2rem 0;
+  color: rgb(0, 0, 0);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.pdf-filters {
+  margin-bottom: 2rem;
+}
+
+.filter-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-group label {
+  margin-bottom: 0.5rem;
+  color: rgba(0, 0, 0, 0.8);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.filter-group select,
+.filter-group input {
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.9rem;
+  background: rgba(0, 0, 0, 0.1);
+  color: rgb(0, 0, 0);
+  backdrop-filter: blur(10px);
+  transition: var(--transition);
+}
+
+.filter-group select:focus,
+.filter-group input:focus {
+  outline: none;
+  border-color: rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+.pdf-actions {
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.download-pdf-btn {
+  padding: 1.25rem 3rem;
+  background: var(--danger-gradient);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 600;
+  transition: var(--transition);
+  box-shadow: var(--shadow-light);
+  position: relative;
+  overflow: hidden;
+}
+
+.download-pdf-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.download-pdf-btn:hover:not(:disabled)::before {
+  left: 100%;
+}
+
+.download-pdf-btn:hover:not(:disabled) {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: var(--shadow-heavy);
+}
+
+.download-pdf-btn:disabled {
+  background: linear-gradient(135deg, #a0aec0 0%, #718096 100%);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.pdf-info {
+  background: rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  padding: 2rem;
+  border-radius: var(--border-radius-sm);
+  border-left: 4px solid #4facfe;
+}
+
+.pdf-info h4 {
+  margin: 0 0 1rem 0;
+  color: rgb(0, 0, 0);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.pdf-info ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.pdf-info li {
+  margin-bottom: 0.75rem;
+  color: rgba(0, 0, 0, 0.8);
+  line-height: 1.5;
+}
+
+/* Calendar Styles */
+.attendance-calendar {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius);
+  padding: 2rem;
+  box-shadow: var(--shadow-light);
+  margin: 2rem 0;
+}
+
+.attendance-calendar h4 {
+  margin-bottom: 1.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: rgb(0, 0, 0);
+}
+
+.react-calendar {
+  width: 100%;
+  border: none;
+  font-family: 'Inter', sans-serif;
+  background: transparent;
+  color: rgb(0, 0, 0);
+}
+
+.react-calendar__tile {
+  position: relative;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: var(--transition);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.react-calendar__tile:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgb(0, 0, 0);
+}
+
+.react-calendar__tile--active {
+  background: var(--primary-gradient) !important;
+  color: rgb(0, 0, 0) !important;
+  border-radius: 50%;
+  box-shadow: var(--shadow-light);
+}
+
+.overtime-day {
+  background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%) !important;
+  color: rgb(255, 0, 0) !important;
+  border-radius: 50% !important;
+  box-shadow: var(--shadow-light);
+}
+
+.present-day {
+  background: var(--success-gradient) !important;
+  color: rgb(255, 255, 255) !important;
+  border-radius: 50% !important;
+  box-shadow: var(--shadow-light);
+}
+
+.absent-day {
+  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%) !important;
+  color: rgb(0, 0, 0) !important;
+  border-radius: 50% !important;
+  box-shadow: var(--shadow-light);
+}
+
+.holiday-dot {
+  display: block;
+  margin: 0 auto;
+  margin-top: 2px;
+  width: 6px;
+  height: 6px;
+  background: #0088ff;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(79, 172, 254, 0.5);
+}
+
+.calendar-legend {
+  margin-top: 1.9rem;
+  display: flex;
+  gap: 1.5rem;
+  padding-top: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.legend-box {
+  
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+  box-shadow: var(--shadow-light);
+}
+
+.legend-box.present { 
+  background: var(--success-gradient);
+}
+
+.legend-box.overtime { 
+  background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);
+}
+
+.legend-box.absent { 
+  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+}
+
+.legend-box.holiday { 
+  background: #4facfe;
+}
+
+/* Loading and No Data States */
+.loading,
+.no-data {
+  text-align: center;
+  padding: 3rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.1rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-light);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.status-badge {
+  animation: fadeIn 0.5s ease;
+}
+
+.attendance-card {
+  animation: slideIn 0.5s ease;
+}
+
+.summary-item:hover {
+  animation: pulse 0.3s ease;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .attendance-management {
+    padding: 1.5rem;
+  }
+  
+  .attendance-header h2 {
+    font-size: 2rem;
+  }
+  
+  .attendance-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .attendance-management {
+    padding: 1rem;
+  }
+  
+  .attendance-header {
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .attendance-header h2 {
+    font-size: 1.75rem;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .tab-buttons {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .attendance-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .individual-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .date-filters {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .clock-buttons {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .filter-row {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .calendar-legend {
+    justify-content: flex-start;
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .attendance-management {
+    padding: 0.5rem;
+  }
+  
+  .attendance-header,
+  .individual-controls,
+  .attendance-summary,
+  .attendance-history,
+  .pdf-reports {
+    padding: 1rem;
+  }
+  
+  .attendance-card {
+    padding: 1.5rem;
+  }
+  
+  .tab-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Focus styles for accessibility */
+button:focus,
+select:focus,
+input:focus {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+  .attendance-management {
+    background: white;
+    color: black;
+  }
+  
+  .attendance-header,
+  .attendance-card,
+  .attendance-summary,
+  .attendance-history {
+    background: white;
+    border: 1px solid #ddd;
+    box-shadow: none;
+  }
+  
+  .attendance-header h2,
+  .staff-info h4,
+  .attendance-summary h3,
+  .attendance-history h4 {
+    color: black;
+  }
+}
