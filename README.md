@@ -97,10 +97,6 @@ JWT_SECRET=your-secret-key
 PORT=5000
 CLIENT_URL=http://localhost:3000
 
-# AI Integration (optional)
-OPENAI_API_KEY=sk-...
-```
-
 ### Running the Application
 
 Start the backend:
