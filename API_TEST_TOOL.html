@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pure Portions API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #667eea;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e8f4f8;
+            border-left: 4px solid #667eea;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .error {
+            background: #ffe8e8;
+            border-left-color: #ff4444;
+        }
+        .success {
+            background: #e8ffe8;
+            border-left-color: #44ff44;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Pure Portions API Test Tool</h1>
+        <p>This tool helps you test your backend API endpoints directly.</p>
+
+        <div class="test-section">
+            <h3>Step 1: Enter Your Token</h3>
+            <p>Open your app, press F12, go to Console, type: <code>localStorage.getItem('token')</code></p>
+            <input type="text" id="tokenInput" placeholder="Paste your token here...">
+            <button onclick="saveToken()">Save Token</button>
+            <div id="tokenStatus"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Step 2: Test Endpoints</h3>
+            <button onclick="testEndpoint('/api/staff')">Test Staff</button>
+            <button onclick="testEndpoint('/api/inventory')">Test Inventory</button>
+            <button onclick="testEndpoint('/api/recipes')">Test Recipes</button>
+            <button onclick="testEndpoint('/api/leftovers')">Test Leftovers</button>
+            <button onclick="testEndpoint('/api/finance')">Test Finance</button>
+            <button onclick="testAllEndpoints()">Test All Endpoints</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Results:</h3>
+            <div id="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Quick Stats:</h3>
+            <div id="stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;"></div>
+        </div>
+    </div>
+
+    <script>
+        let token = '';
+
+        function saveToken() {
+            token = document.getElementById('tokenInput').value.trim();
+            if (token) {
+                document.getElementById('tokenStatus').innerHTML = 
+                    '<div class="result success">✅ Token saved! Length: ' + token.length + ' characters</div>';
+            } else {
+                document.getElementById('tokenStatus').innerHTML = 
+                    '<div class="result error">❌ Please enter a valid token</div>';
+            }
+        }
+
+        async function testEndpoint(endpoint) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML += `<div style="margin: 10px 0;">Testing ${endpoint}...</div>`;
+
+            if (!token) {
+                resultsDiv.innerHTML += '<div class="result error">❌ Please save your token first!</div>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://localhost:5000${endpoint}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                resultsDiv.innerHTML += `
+                    <div class="result success">
+                        ✅ ${endpoint}
+                        Status: ${response.status} OK
+                        Data Count: ${Array.isArray(data) ? data.length : 'N/A'}
+                        Response: ${JSON.stringify(data.slice(0, 2), null, 2)}
+                        ${Array.isArray(data) && data.length > 2 ? '... (showing first 2 items)' : ''}
+                    </div>
+                `;
+
+                updateStats(endpoint, data);
+
+            } catch (error) {
+                resultsDiv.innerHTML += `
+                    <div class="result error">
+                        ❌ ${endpoint}
+                        Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function testAllEndpoints() {
+            document.getElementById('results').innerHTML = '<h4>Running all tests...</h4>';
+            document.getElementById('stats').innerHTML = '';
+            
+            const endpoints = ['/api/staff', '/api/inventory', '/api/recipes', '/api/leftovers', '/api/finance'];
+            
+            for (const endpoint of endpoints) {
+                await testEndpoint(endpoint);
+            }
+        }
+
+        function updateStats(endpoint, data) {
+            const statsDiv = document.getElementById('stats');
+            const count = Array.isArray(data) ? data.length : 0;
+            
+            const name = endpoint.split('/').pop();
+            const icon = {
+                'staff': '👥',
+                'inventory': '📦',
+                'recipes': '🍛',
+                'leftovers': '♻️',
+                'finance': '💰'
+            }[name] || '📊';
+
+            statsDiv.innerHTML += `
+                <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center;">
+                    <div style="font-size: 2rem;">${icon}</div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #667eea;">${count}</div>
+                    <div style="color: #666; text-transform: capitalize;">${name}</div>
+                </div>
+            `;
+        }
+
+        // Auto-load token if available
+        window.onload = function() {
+            const savedToken = localStorage.getItem('testToken');
+            if (savedToken) {
+                document.getElementById('tokenInput').value = savedToken;
+                token = savedToken;
+                document.getElementById('tokenStatus').innerHTML = 
+                    '<div class="result success">✅ Token loaded from previous session</div>';
+            }
+        };
+
+        // Save token to localStorage
+        function saveToken() {
+            token = document.getElementById('tokenInput').value.trim();
+            if (token) {
+                localStorage.setItem('testToken', token);
+                document.getElementById('tokenStatus').innerHTML = 
+                    '<div class="result success">✅ Token saved! Length: ' + token.length + ' characters</div>';
+            } else {
+                document.getElementById('tokenStatus').innerHTML = 
+                    '<div class="result error">❌ Please enter a valid token</div>';
+            }
+        }
+    </script>
+</body>
+</html>
